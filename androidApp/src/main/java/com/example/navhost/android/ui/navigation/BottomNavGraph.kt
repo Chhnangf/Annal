@@ -22,7 +22,7 @@ fun BottomNavGraph (
     todoViewModel: ToDoViewModel
 ) {
     NavHost(navController = navController,
-        startDestination = InitScreen.Splash.route ,
+        startDestination = BottomBarScreen.Home.route ,
     ) {
         /**
          * for Init

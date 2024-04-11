@@ -50,45 +50,60 @@ fun ToDoAddScreen(
 ) {
 
     Log.d("AddToDoScreen", "todoId: $todoId, isNew: $isNew, todoBoxId: $todoBoxId")
+    // 在AddToDoScreen函数顶部添加toDoData的定义
+    var toDoData by remember { mutableStateOf<ToDoData?>(null) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedPriority by remember { mutableStateOf(Priority.低) } // 优先级默认为低
 
     // 时间选择器
-    var isDialogShown: Boolean by rememberSaveable {
-        mutableStateOf(false)
-    }
-    val (selectedTime, setSelectedTime) = rememberSaveable {
-        mutableStateOf(LocalTime.now().noSeconds())
-    }
+    var isDialogShown: Boolean by rememberSaveable { mutableStateOf(false) }
+    var reminderTimeIsSet by remember { mutableStateOf(false) }
     var reminderText by rememberSaveable { mutableStateOf("设置提醒") }
+    val (selectedTime, setSelectedTime) = rememberSaveable {
+        mutableStateOf(
+            LocalTime.now().noSeconds()
+        )
+    }
+    val formatter = DateTimeFormatter.ofPattern("HH:mm") // 创建一个时间格式化器
 
-    // // 编辑模式，根据isNew查询并填充表单数据
-    if (!isNew && todoId != null) {
+
+    /**
+     *  使用LaunchedEffect来监听todoId的变化，
+     *  当todoId改变时，会在协程中启动一个新的作用域执行内部逻辑。
+     */
+    LaunchedEffect(key1 = todoId) {
         /**
-         *  使用LaunchedEffect来监听todoId的变化，
-         *  当todoId改变时，会在协程中启动一个新的作用域执行内部逻辑。
+         *  订阅todoViewModel.getTodoById(todoId)返回的Flow，并通过collect方法收集数据
+         *  当查询到待办事项时，会更新title、description和selectedPriority这三个状态变量的值
          */
-        LaunchedEffect(key1 = todoId) {
-                /**
-                 *  订阅todoViewModel.getTodoById(todoId)返回的Flow，并通过collect方法收集数据
-                 *  当查询到待办事项时，会更新title、description和selectedPriority这三个状态变量的值
-                 */
-                todoViewModel.getTodoById(todoId).collect { todo ->
-                    Log.d("AddToDoScreen", "Fetched todo: $todo")
+        todoId?.let {
+            todoViewModel.getTodoById(it).collect { todo ->
+                Log.d("AddToDoScreen", "Fetched todo: $todo")
+                // 新建
+                toDoData = todo
+                // 编辑，根据isNew查询并填充表单数据
+                if (!isNew) {
                     title = todo.title
-                    description = todo.description
+                    description = todo.description.toString()
                     selectedPriority = todo.priority
+                    reminderText = (if (todo.reminderTime != null) {
+                        todo.reminderTime!!.format(formatter)
+                    } else {
+                        "设置提醒"
+                    }).toString()
                 }
+
+            }
         }
     }
 
 
-    Box(modifier = Modifier.fillMaxSize(),contentAlignment = Alignment.Center) {
-        Column (
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-        ){
+        ) {
             // 输入标题
             OutlinedTextField(
                 value = title,
@@ -116,20 +131,25 @@ fun ToDoAddScreen(
                 onPrioritySelected = { selectedPriority = it }
             )
 
-            Row (
-                Modifier.fillMaxWidth()
-                ,
+            Row(
+                Modifier.fillMaxWidth(),
                 Arrangement.SpaceAround
-            ){
+            ) {
                 // 提交按钮
                 Button(
                     onClick = {
+                        val reminderTimeValue = if (reminderTimeIsSet) {
+                            selectedTime
+                        } else {
+                            toDoData?.reminderTime
+                        }
                         val newTodo = if (isNew) {
                             ToDoData(
                                 todo_box_id = todoBoxId,
                                 title = title,
                                 priority = selectedPriority,
                                 description = description,
+                                reminderTime = reminderTimeValue,
                             )
                         } else {
                             todoId?.let { existingId ->
@@ -139,6 +159,7 @@ fun ToDoAddScreen(
                                     title = title,
                                     priority = selectedPriority,
                                     description = description,
+                                    reminderTime = reminderTimeValue,
                                 )
                             }
                         }
@@ -157,7 +178,7 @@ fun ToDoAddScreen(
                     onClick = {
                         if (!title.isNullOrEmpty()) {
                             val deleteTodo =
-                                todoId?.let { ToDoData(it,title, selectedPriority, description) }
+                                todoId?.let { ToDoData(it, title, selectedPriority, description) }
                             deleteTodo?.let { todoViewModel.deleteItem(it) }
                             // 返回到上一个目的地，即TodoScreen
                             nestedNavController.popBackStack()
@@ -171,27 +192,38 @@ fun ToDoAddScreen(
                     Text(text = "Delete")
                 }
 
-                    TextButton(
-                        onClick = { isDialogShown = true },
-                        Modifier
-                            //.border(1.dp, Color.Red),
-                    ) {
-                        Text(text = reminderText)
-                    }
+                // 设置提醒
+                TextButton(
+                    onClick = { isDialogShown = true },
+                    Modifier
+                    //.border(1.dp, Color.Red),
+                ) {
+                    Text(text = reminderText)
                 }
+            }
         }
     }
-    val formatter = DateTimeFormatter.ofPattern("HH:mm") // 创建一个时间格式化器
+
+    // 提醒组件逻辑
+
     if (isDialogShown) {
         TimePickerDialog(
             onDismissRequest = { isDialogShown = false },
             initialTime = selectedTime,
             onTimeChange = {
-                setSelectedTime(it)
                 isDialogShown = false
-                reminderText = "提醒时间: ${it.format(formatter)}" // 使用时间格式化器将LocalTime转为字符串
+                reminderTimeIsSet = true
+                setSelectedTime(it)
+                reminderText =
+                    "提醒时间: ${it.format(DateTimeFormatter.ofPattern("HH:mm"))}" // 使用时间格式化器将LocalTime转为字符串
+
+                // 更新数据库中的提醒时间
+                toDoData?.let { existingTodo ->
+                    val updatedTodo = existingTodo.copy(reminderTime = it)
+                    todoViewModel.insertOrUpdateData(updatedTodo)
+                }
             },
-            title = { Text(text = "Select time") }
+            title = { Text(text = "选择提醒时间") }
         )
     }
 }
