@@ -4,6 +4,7 @@ package com.example.navhost.android.ui.screens
 //import dev.jeziellago.compose.markdowntext.MarkdownText
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,12 +29,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.Surface
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -61,7 +63,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -71,6 +73,7 @@ import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.viewmodel.ToDoViewModel
 import com.example.navhost.android.markdown.MarkdownText
 import kotlinx.coroutines.flow.collectLatest
+import java.time.format.DateTimeFormatter
 
 /** 技术栈
  * Kotlin
@@ -100,7 +103,7 @@ fun TodosScreen(
 
     var showDialog by remember { mutableStateOf(false) }
     // 订阅收纳盒及其内容数据流
-    val boxesWithTodosState by todoViewModel.todoBoxesWithTodos.collectAsState(emptyList())
+    // val boxesWithTodosState by todoViewModel.todoBoxesWithTodos.collectAsState(emptyList())
 
     // 使用Scaffold创建包含顶部栏和底部栏的布局
     Scaffold(
@@ -123,7 +126,7 @@ fun TodosScreen(
                         todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
                         title = todoBox.title,
                         todos = todoDatas,
-                        onEdit = { todoId, isNew ->
+                        onEdit = { todoId, _ ->
                             // 实现导航到编辑页面的逻辑
                             navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}")
                         },
@@ -223,7 +226,7 @@ fun TodoBox(
             .clip(RoundedCornerShape(8.dp)),
     ) {
         // 竖向容器：标题功能栏 + 内容栏 + 底部功能栏
-        Column(modifier = Modifier.background(Color(0xffEEEEEE).copy(alpha = 1f))) {
+        Column(modifier = Modifier.background(Color(0x77EEEEEE).copy(alpha = 1f))) {
             // 收纳盒标题栏及相关按钮
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -231,7 +234,7 @@ fun TodoBox(
                     .fillMaxWidth()
                     .height(35.dp)
                     .padding()
-                    .background(Color(0xffFFD39B))
+                    .background(Color(0x9FB3B8A5).copy(alpha = 0.5f))
                     .clickable(onClick = { isExpanded = !isExpanded })
                     .padding(start = 8.dp)
                 //.border(width = 1.dp, color = Color.Red)
@@ -239,8 +242,11 @@ fun TodoBox(
                 // 标题
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        ),
+                    color = Color(0xFF35303C),
                     modifier = Modifier.weight(1f)
                 )
                 // 删除盒子
@@ -254,7 +260,7 @@ fun TodoBox(
                 // 折叠/展开盒子
                 IconButton(onClick = { isExpanded = !isExpanded }) {
                     Icon(
-                        imageVector = if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                        imageVector = if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = "Toggle expansion"
                     )
                 }
@@ -324,6 +330,7 @@ fun ToDosItem(
     val rowAlpha = if (todo.isChecked == true) ContentAlpha.disabled else ContentAlpha.high
     Row(
         modifier = Modifier
+            .padding(top = 6.dp)
             .fillMaxWidth()
             .alpha(rowAlpha)
         //.clickable(onClick = { onEdit(todo.id, false) })
@@ -338,7 +345,7 @@ fun ToDosItem(
             horizontalAlignment = Alignment.CenterHorizontally
 
         ) {
-            todo.isChecked?.let {
+            todo.isChecked.let {
                 CustomCheckbox(
                     checked = it,
                     onCheckedChange = { newChecked ->
@@ -360,13 +367,50 @@ fun ToDosItem(
             //.border(width = 1.dp, color = Color.Blue)
         ) {
             Text(text = todo.title, style = MaterialTheme.typography.bodyMedium)
-            //Text(text = todo.description, style = MaterialTheme.typography.bodySmall)
-            MarkdownText(
-                markdown = todo.description,
-                style = MaterialTheme.typography.bodySmall,
-                // 其他所需的参数...
+
+            /**
+             *     text = todo.reminderTime.toLocalDate().toString() +
+             *            " " +
+             *            todo.reminderTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+             *     您会得到类似于"2023-03-15 14:30"的格式
+             *     使用正则表达式省略时间前方多余的0
+             */
+            val formatter = DateTimeFormatter.ofPattern("H：mm")
+            val dateWithoutLeadingZero = todo.reminderTime?.format(formatter)
+                ?.replaceFirst("^0+(?!$)", "")
+            Row (
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 6.dp, end = 8.dp)
+                    //.border(1.dp, Color.Red)
+                ,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ){
+                if (dateWithoutLeadingZero != null) {
+                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "提醒",Modifier.size(16.dp))
+                    dateWithoutLeadingZero.let {
+                        Text(text = it ,style =TextStyle(fontSize = 13.sp, color = Color.Blue))
+                    }
+                }
+            }
+            Log.d("ToDosItem", "todoId: ${todo.id}, description: ${todo.description}")
+            if (todo.description != "") {
+                MarkdownText(
+                    markdown = todo.description!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    // 其他所需的参数...
+                )
+            }
+
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .height(1.5.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(Color.LightGray)
             )
-            Text(text = "", style = TextStyle(textDecoration = TextDecoration.LineThrough))
         }
 
         // 按钮操纵
@@ -376,10 +420,10 @@ fun ToDosItem(
             //.border(width = 1.dp, color = Color.Red)
             verticalArrangement = Arrangement.Center
         ) {
-            Image(imageVector = Icons.Default.List, contentDescription = "清单操作")
+            Image(imageVector = Icons.AutoMirrored.Filled.List, contentDescription = "清单操作")
         }
-
     }
+
 }
 
 // 自定义复选框样式和数据存储
@@ -398,7 +442,7 @@ fun CustomCheckbox(
                 Priority.高 -> Color.Red
                 // Color(0xFFFF8C00)
                 Priority.中 -> Color(0xFF6495ED)
-                Priority.低 -> Color(0xFF006400)
+                Priority.低 -> Color(0xFF007900)
             }
         ),
         modifier = Modifier.size(22.dp),
@@ -436,7 +480,7 @@ fun CustomSearchBar(
             .height(44.dp)
             //.border(1.dp, Color.Red)
             .clip(RoundedCornerShape(28.dp))
-            .background(Color(0xFFFFEBCD)),
+            .background(Color(0xFFE4DBCF)),
         verticalAlignment = Alignment.CenterVertically
     ){
 
@@ -455,7 +499,7 @@ fun CustomSearchBar(
             if (searchText.isEmpty()) {
                 Text(
                     text = "搜搜看",
-                    color = Color(0xffb4b4b4),
+                    color = Color(0xFF615959),
                     fontSize = 15.sp
                 )
             }
@@ -469,7 +513,7 @@ fun CustomSearchBar(
                 .aspectRatio(1f)
                 .clip(CircleShape)
 
-                .background(Color(0XFFFA9E51))
+                .background(Color(0xFFE7A46C))
         ){
             Icon(
                 imageVector = Icons.Default.Search,

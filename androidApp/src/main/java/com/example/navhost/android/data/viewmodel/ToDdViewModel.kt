@@ -4,11 +4,15 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.ToDoDatabase
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.repository.ToDoRepository
+import com.example.navhost.android.worker.ReminderWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +23,12 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 
 class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -61,10 +71,30 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun insertOrUpdateData(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (toDoData.id == null) {
-                repository.insertData(toDoData)
-            } else {
-                repository.updateData(toDoData)
+
+            when (toDoData.id?.let { toDoDao.getById(it) }) {
+                null -> repository.insertData(toDoData)
+                else -> repository.updateData(toDoData)
+            }
+
+            // 添加以下代码，判断是否存在提醒时间并安排通知
+            val delay = calculateReminderDelay(toDoData)
+            Log.d("ReminderWorker_S", "Schedule Reminder at ${LocalDateTime.now()} with delay of $delay ms for todo: ${toDoData.title}")
+
+            if (toDoData.reminderTime != null) {
+                if (delay > 0) {
+                    val workRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
+                        .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+
+                        .setInputData(workDataOf(
+                            "TODO_ID" to toDoData.id,
+                            "TITLE" to toDoData.title,
+                            // 不再传递提醒时间字符串，因为通知触发时不再需要解析时间
+                        ))
+                        .build()
+
+                    WorkManager.getInstance(getApplication()).enqueue(workRequest)
+                }
             }
             fetchTodoBoxesWithTodos()
         }
@@ -164,4 +194,18 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+}
+
+fun calculateReminderDelay(toDoData: ToDoData): Long {
+    val currentDate = LocalDate.now(ZoneId.systemDefault())
+    val reminderDateTime = LocalDateTime.of(currentDate, toDoData.reminderTime)
+    val currentTime = Instant.now()
+
+    // 将提醒时间转换为Instant对象
+    val reminderInstant = reminderDateTime.atZone(ZoneId.systemDefault()).toInstant()
+
+    // 计算延迟时间（以毫秒为单位）
+    val delay = ChronoUnit.MILLIS.between(currentTime, reminderInstant)
+
+    return delay
 }

@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.datastore.core)
     implementation(libs.androidx.datastore.preferences.core)
     implementation(libs.androidx.material3.android)
+    implementation(libs.androidx.work.runtime.ktx)
     debugImplementation(libs.compose.ui.tooling)
 
     implementation ("androidx.compose.material:material:1.2.1")
@@ -114,6 +115,8 @@ dependencies {
     // for JSON 序列化和反序列化
     implementation ("com.google.code.gson:gson:2.9.0")
 
+    // for work
+    implementation ("androidx.work:work-runtime-ktx:2.7.1")
 
 }
 

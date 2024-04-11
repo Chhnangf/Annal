@@ -144,7 +144,7 @@ fun RowScope.AddBarItems(
 }
 
 // 定义一个函数来判断是否应该显示底部栏
-fun shouldShowBottomBar(route: String?) = route != InitScreen.Splash.route && route != InitScreen.Login.route
+fun shouldShowBottomBar(route: String?) = route != InitScreen.Splash.route && route != InitScreen.Login.route && route != "todos/edit/{todoId}?isNew={isNew}&todoBoxId={todoBoxId}"
 
 @Composable
 fun CustomTopBar(navController: NavHostController, sessionViewModel: SessionViewModel) {

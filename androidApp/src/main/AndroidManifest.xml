@@ -4,11 +4,15 @@
     <!-- 添加这一行以覆盖库的 minSdkVersion -->
     <uses-sdk tools:overrideLibrary="com.example.navhost" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
 
     <application
         android:allowBackup="false"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
         <meta-data
             android:name="com.google.android.hilt.enabled"
             android:value="true" />

@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import java.time.LocalTime
 
 /**
  *  优先级：高、中、低
@@ -39,8 +40,9 @@ data class ToDoData(
     val id: Long? = null,
     var title: String,
     var priority: Priority,
-    var description: String,
+    var description: String?,
     var isChecked: Boolean = false,
+    var reminderTime: LocalTime? = null, // 新增字段：提醒时间
     @ColumnInfo(index = true)
     val todo_box_id: Long? = null,
 )

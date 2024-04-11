@@ -53,6 +53,7 @@ class SessionViewModel : ViewModel() {
     }
 }
 
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -87,9 +88,8 @@ class MainActivity : ComponentActivity() {
                 }
 
             }
+
         }
+
     }
 }
-
-sealed class danlilei ()
-object danliduixiang {}

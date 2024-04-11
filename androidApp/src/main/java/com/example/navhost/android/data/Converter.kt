@@ -2,6 +2,8 @@ package com.example.navhost.android.data
 
 import androidx.room.TypeConverter
 import com.example.navhost.android.data.model.Priority
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 /**
  *  这段代码定义了一个名为 Converter 的类，其中包含两个方法，
@@ -36,5 +38,17 @@ class Converter {
         return Priority.valueOf(priority)
     }
 
+    /**
+     *  对LocalDateTime序列化和反序列化
+     */
+    @TypeConverter
+    fun fromLocalTime(localTime: LocalTime?): String? {
+        return localTime?.format(DateTimeFormatter.ISO_TIME)
+    }
+
+    @TypeConverter
+    fun toLocalTime(databaseString: String?): LocalTime? {
+        return databaseString?.let { LocalTime.parse(it, DateTimeFormatter.ISO_TIME) }
+    }
 }
 
