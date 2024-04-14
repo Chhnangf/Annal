@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.navhost.android.data.model.Priority
 import com.example.navhost.android.data.model.ToDoData
+import com.example.navhost.android.data.model.TodoStatus
 import com.example.navhost.android.data.viewmodel.ToDoViewModel
 import com.marosseleng.compose.material3.datetimepickers.time.domain.noSeconds
 import com.marosseleng.compose.material3.datetimepickers.time.ui.dialog.TimePickerDialog
@@ -54,7 +55,7 @@ fun ToDoAddScreen(
     var toDoData by remember { mutableStateOf<ToDoData?>(null) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedPriority by remember { mutableStateOf(Priority.低) } // 优先级默认为低
+    var selectedPriority by remember { mutableStateOf(Priority.LOW) } // 优先级默认为低
 
     // 时间选择器
     var isDialogShown: Boolean by rememberSaveable { mutableStateOf(false) }
@@ -72,6 +73,7 @@ fun ToDoAddScreen(
      *  使用LaunchedEffect来监听todoId的变化，
      *  当todoId改变时，会在协程中启动一个新的作用域执行内部逻辑。
      */
+    if (!isNew) {
     LaunchedEffect(key1 = todoId) {
         /**
          *  订阅todoViewModel.getTodoById(todoId)返回的Flow，并通过collect方法收集数据
@@ -80,18 +82,19 @@ fun ToDoAddScreen(
         todoId?.let {
             todoViewModel.getTodoById(it).collect { todo ->
                 Log.d("AddToDoScreen", "Fetched todo: $todo")
-                // 新建
-                toDoData = todo
-                // 编辑，根据isNew查询并填充表单数据
-                if (!isNew) {
-                    title = todo.title
-                    description = todo.description.toString()
-                    selectedPriority = todo.priority
-                    reminderText = (if (todo.reminderTime != null) {
-                        todo.reminderTime!!.format(formatter)
-                    } else {
-                        "设置提醒"
-                    }).toString()
+                // 更新UI状态...
+                if (todo.status != TodoStatus.DELETED) {
+                    toDoData = todo
+                    // 编辑，根据isNew查询并填充表单数据
+                        title = todo.title
+                        description = todo.description.toString()
+                        selectedPriority = todo.priority
+                        reminderText = (if (todo.reminderTime != null) {
+                            todo.reminderTime!!.format(formatter)
+                        } else {
+                            "设置提醒"
+                        }).toString()
+                    }
                 }
 
             }
@@ -176,16 +179,10 @@ fun ToDoAddScreen(
                 // 删除按钮
                 Button(
                     onClick = {
-                        if (!title.isNullOrEmpty()) {
-                            val deleteTodo =
-                                todoId?.let { ToDoData(it, title, selectedPriority, description) }
-                            deleteTodo?.let { todoViewModel.deleteItem(it) }
+                        val updatedTodo = toDoData?.copy(status = TodoStatus.DELETED)
+                        updatedTodo?.let { todoViewModel.insertOrUpdateData(it) }
                             // 返回到上一个目的地，即TodoScreen
                             nestedNavController.popBackStack()
-                        } else {
-                            // 显示错误提示，输入不能为空
-                            // ...
-                        }
                     },
                     modifier = Modifier
                 ) {
@@ -228,7 +225,7 @@ fun ToDoAddScreen(
 @Composable
 fun PrioritySelector(
     onPrioritySelected: (Priority) -> Unit,
-    initiallySelected: Priority = Priority.低
+    initiallySelected: Priority = Priority.LOW
 ) {
     var expanded by remember { mutableStateOf(false) }
     var selectedPriority by remember { mutableStateOf(initiallySelected) }

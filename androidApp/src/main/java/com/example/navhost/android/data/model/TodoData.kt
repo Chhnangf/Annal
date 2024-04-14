@@ -9,11 +9,31 @@ import java.time.LocalTime
 /**
  *  优先级：高、中、低
  */
-enum class Priority {
-    高,
-    中,
-    低
+enum class Priority(val displayText: String) {
+    HIGH("高"),
+    MEDIUM("中"),
+    LOW("低");
+    override fun toString(): String {
+        return displayText
+    }
 }
+
+/**
+ *  状态：待完成/已完成/删除
+ */
+enum class TodoStatus(val displayText: String) {
+    PENDING("待完成"),
+    COMPLETED("已完成"),
+    DELETED("已删除");
+    override fun toString(): String {
+        return displayText
+    }
+
+    // 使用：
+//    val status = TodoStatus.COMPLETED
+//    println(status.toString())  // 输出：“已完成”
+}
+
 
 
 /**
@@ -43,6 +63,7 @@ data class ToDoData(
     var description: String?,
     var isChecked: Boolean = false,
     var reminderTime: LocalTime? = null, // 新增字段：提醒时间
+    var status: TodoStatus = TodoStatus.PENDING,
     @ColumnInfo(index = true)
     val todo_box_id: Long? = null,
 )

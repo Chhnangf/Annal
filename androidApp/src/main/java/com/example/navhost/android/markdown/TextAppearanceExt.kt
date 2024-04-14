@@ -104,7 +104,7 @@ fun TextView.applyTextAlign(align: TextAlign) {
     }
 }
 
-fun TextView.enableTextOverflow() {
+fun TextView.enableTextOverflows() {
     doOnNextLayout {
         if (maxLines != -1 && lineCount > maxLines) {
             val endOfLastLine = layout.getLineEnd(maxLines - 1)

@@ -2,6 +2,7 @@ package com.example.navhost.android.data
 
 import androidx.room.TypeConverter
 import com.example.navhost.android.data.model.Priority
+import com.example.navhost.android.data.model.TodoStatus
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -25,7 +26,7 @@ class Converter {
      */
     @TypeConverter
     fun fromPriority(priority: Priority): String {
-        return priority.name
+        return priority.displayText
     }
 
     /**
@@ -34,8 +35,28 @@ class Converter {
      *  当 Room 从数据库中读取数据并需要还原成 Priority 类型时，会调用这个方法。
      */
     @TypeConverter
-    fun toPriority(priority: String): Priority {
-        return Priority.valueOf(priority)
+    fun toPriority(priorityText: String): Priority {
+        return when (priorityText) {
+            Priority.HIGH.displayText -> Priority.HIGH
+            Priority.MEDIUM.displayText -> Priority.MEDIUM
+            Priority.LOW.displayText -> Priority.LOW
+            else -> throw IllegalArgumentException("Invalid priority text: $priorityText")
+        }
+    }
+
+    @TypeConverter
+    fun fromTodoStatus(status: TodoStatus): String {
+        return status.displayText
+    }
+
+    @TypeConverter
+    fun toTodoStatus(statusText: String): TodoStatus {
+        return when (statusText) {
+            TodoStatus.PENDING.displayText -> TodoStatus.PENDING
+            TodoStatus.COMPLETED.displayText -> TodoStatus.COMPLETED
+            TodoStatus.DELETED.displayText -> TodoStatus.DELETED
+            else -> throw IllegalArgumentException("Invalid todo status text: $statusText")
+        }
     }
 
     /**

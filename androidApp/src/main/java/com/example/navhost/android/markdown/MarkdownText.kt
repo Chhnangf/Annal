@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.res.ResourcesCompat
 import coil.ImageLoader
 import io.noties.markwon.Markwon
 
@@ -58,7 +59,9 @@ fun MarkdownText(
             TextView(factoryContext).apply {
                 viewId?.let { id = viewId }
                 onClick?.let { setOnClickListener { onClick() } }
-                fontResource?.let { font -> applyFontResource(font) }
+                fontResource?.let { fontResourceId ->
+                    typeface = ResourcesCompat.getFont(context, fontResourceId)
+                }
 
                 setMaxLines(maxLines)
                 setLinkTextColor(linkTextColor.toArgb())
@@ -67,7 +70,7 @@ fun MarkdownText(
 
                 movementMethod = LinkMovementMethod.getInstance()
 
-                if (truncateOnTextOverflow) enableTextOverflow()
+                if (truncateOnTextOverflow) enableTextOverflows()
 
                 autoSizeConfig?.let { config ->
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

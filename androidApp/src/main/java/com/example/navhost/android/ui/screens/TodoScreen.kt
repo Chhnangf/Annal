@@ -439,10 +439,10 @@ fun CustomCheckbox(
         border = BorderStroke(
             width = 2.dp,
             color = when (priority) {
-                Priority.高 -> Color.Red
+                Priority.HIGH -> Color.Red
                 // Color(0xFFFF8C00)
-                Priority.中 -> Color(0xFF6495ED)
-                Priority.低 -> Color(0xFF007900)
+                Priority.MEDIUM -> Color(0xFF6495ED)
+                Priority.LOW -> Color(0xFF007900)
             }
         ),
         modifier = Modifier.size(22.dp),
