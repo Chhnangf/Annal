@@ -54,7 +54,7 @@ fun ToDoAddScreen(
     var toDoData by remember { mutableStateOf<ToDoData?>(null) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedPriority by remember { mutableStateOf(Priority.低) } // 优先级默认为低
+    var selectedPriority by remember { mutableStateOf(Priority.LOW) } // 优先级默认为低
 
     // 时间选择器
     var isDialogShown: Boolean by rememberSaveable { mutableStateOf(false) }
@@ -228,7 +228,7 @@ fun ToDoAddScreen(
 @Composable
 fun PrioritySelector(
     onPrioritySelected: (Priority) -> Unit,
-    initiallySelected: Priority = Priority.低
+    initiallySelected: Priority = Priority.LOW
 ) {
     var expanded by remember { mutableStateOf(false) }
     var selectedPriority by remember { mutableStateOf(initiallySelected) }

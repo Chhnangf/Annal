@@ -11,6 +11,7 @@ import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.ToDoDatabase
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
+import com.example.navhost.android.data.model.TodoStatus
 import com.example.navhost.android.data.repository.ToDoRepository
 import com.example.navhost.android.worker.ReminderWorker
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
@@ -103,6 +105,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteItem(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteItem(toDoData)
+            fetchTodoBoxesWithTodos()
         }
     }
 
@@ -189,7 +192,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             // 搜索栏有内容时遍历titile是否匹配，返回其盒子及其内容
             else -> todoBoxesWithTodos.map { boxes ->
                 boxes.map { (box, todos) ->
-                    box to todos.filter { todo -> todo.title.contains(query, ignoreCase = true) }
+                    box to todos.filter { todo -> todo.status != TodoStatus.DELETED && todo.title.contains(query, ignoreCase = true) }
                 }.filter { (_, filteredTodos) -> filteredTodos.isNotEmpty() }
             }
         }
@@ -197,13 +200,17 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 fun calculateReminderDelay(toDoData: ToDoData): Long {
-    val currentDate = LocalDate.now(ZoneId.systemDefault())
-    val reminderDateTime = LocalDateTime.of(currentDate, toDoData.reminderTime)
-    val currentTime = Instant.now()
 
+    val currentDate = LocalDate.now(ZoneId.systemDefault())
+    // 检查reminderTime是否为null，并提供一个默认值（例如当前时间）
+    val reminderTime = toDoData.reminderTime ?: LocalTime.now(ZoneId.systemDefault())
+
+
+    val reminderDateTime = LocalDateTime.of(currentDate, reminderTime)
     // 将提醒时间转换为Instant对象
     val reminderInstant = reminderDateTime.atZone(ZoneId.systemDefault()).toInstant()
 
+    val currentTime = Instant.now()
     // 计算延迟时间（以毫秒为单位）
     val delay = ChronoUnit.MILLIS.between(currentTime, reminderInstant)
 

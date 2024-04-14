@@ -11,7 +11,7 @@ import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 
 
-@Database(entities = [ToDoData::class, ToDoBox::class], version = 1, exportSchema = false)
+@Database(entities = [ToDoData::class, ToDoBox::class], version = 2, exportSchema = false)
 @TypeConverters(Converter::class)
 abstract class ToDoDatabase: RoomDatabase() {
 
@@ -20,6 +20,15 @@ abstract class ToDoDatabase: RoomDatabase() {
     companion object {
         @Volatile
         private var INSTANCE: ToDoDatabase? = null
+
+        val MIGRATION_1_TO_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+            ALTER TABLE todo_box
+            ADD COLUMN last_modified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        """.trimIndent())
+            }
+        }
 
         fun getDatabase(context: Context): ToDoDatabase {
             val tempInstance = INSTANCE
@@ -31,7 +40,9 @@ abstract class ToDoDatabase: RoomDatabase() {
                     context.applicationContext,
                     ToDoDatabase::class.java,
                     "todo_database"
-                ).build()
+                )
+                    .addMigrations(MIGRATION_1_TO_2) // 添加迁移逻辑
+                    .build()
                 INSTANCE = instance
                 return instance
             }

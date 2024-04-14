@@ -1,8 +1,10 @@
 package com.example.navhost.android.data.repository
 
+import android.util.Log
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
+import com.example.navhost.android.data.model.TodoStatus
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -60,7 +62,15 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
         val boxes = toDoDao.getAllTodoBoxes()
         return boxes.map { box ->
             val todos = toDoDao.getTodosByBoxId(box.id!!)
-            Pair(box, todos)
+            val todoStates = todos.filter { it.status != TodoStatus.DELETED }
+
+            // Log
+            Log.d("ToDoRepository", "Fetched todo box: ${box.title}, containing ${todos.size} todos:")
+            todos.forEachIndexed { index, todo ->
+                Log.d("ToDoRepository", "  - Todo #${index + 1}: Title: ${todo.title}, Status: ${todo.status.displayText}")
+            }
+
+            Pair(box, todoStates)
         }
     }
 

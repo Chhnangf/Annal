@@ -11,12 +11,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,9 +32,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -47,6 +52,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -64,6 +71,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -73,14 +81,12 @@ import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.viewmodel.ToDoViewModel
 import com.example.navhost.android.markdown.MarkdownText
 import kotlinx.coroutines.flow.collectLatest
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-
-/** 技术栈
- * Kotlin
- * ViewModel + LiveData + Room + AlarmManager + WorkerManager
- * navigation + DiaLog + 前台通知
- */
-
+import java.time.temporal.TemporalAdjusters
+import java.util.Locale
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
@@ -109,7 +115,30 @@ fun TodosScreen(
     Scaffold(
         topBar = {
             // 自定义搜索栏，接受一个回调函数用于ui响应搜索文本的变化
-            CustomSearchBar(onTextChanged = todoViewModel::setSearchQuery)
+            Column(
+                modifier = Modifier
+                    .background(Color(0x2F2CD68C))
+            ) {
+                // 搜索框
+                CustomSearchBar(onTextChanged = todoViewModel::setSearchQuery)
+
+                // 主题（诗文 + 按钮）
+                CustomTitle()
+
+                // 日历
+                CustomCalendar()
+
+                Box (
+                    modifier = Modifier
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ){
+                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "下拉")
+                }
+            }
+
         },
         content = {
 
@@ -119,7 +148,7 @@ fun TodosScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(state = rememberScrollState())
-                    .padding(top = 60.dp, bottom = 44.dp)
+                    .padding(top = 240.dp, bottom = 44.dp)
             ) {
                 filteredBoxesWithTodos.forEach { (todoBox, todoDatas) ->
                     TodoBox(
@@ -245,7 +274,7 @@ fun TodoBox(
                     style = TextStyle(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        ),
+                    ),
                     color = Color(0xFF35303C),
                     modifier = Modifier.weight(1f)
                 )
@@ -378,19 +407,23 @@ fun ToDosItem(
             val formatter = DateTimeFormatter.ofPattern("H：mm")
             val dateWithoutLeadingZero = todo.reminderTime?.format(formatter)
                 ?.replaceFirst("^0+(?!$)", "")
-            Row (
+            Row(
                 Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp, bottom = 6.dp, end = 8.dp)
-                    //.border(1.dp, Color.Red)
+                //.border(1.dp, Color.Red)
                 ,
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
-            ){
+            ) {
                 if (dateWithoutLeadingZero != null) {
-                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "提醒",Modifier.size(16.dp))
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "提醒",
+                        Modifier.size(16.dp)
+                    )
                     dateWithoutLeadingZero.let {
-                        Text(text = it ,style =TextStyle(fontSize = 13.sp, color = Color.Blue))
+                        Text(text = it, style = TextStyle(fontSize = 13.sp, color = Color.Blue))
                     }
                 }
             }
@@ -439,10 +472,10 @@ fun CustomCheckbox(
         border = BorderStroke(
             width = 2.dp,
             color = when (priority) {
-                Priority.高 -> Color.Red
+                Priority.HIGH -> Color.Red
                 // Color(0xFFFF8C00)
-                Priority.中 -> Color(0xFF6495ED)
-                Priority.低 -> Color(0xFF007900)
+                Priority.MEDIUM -> Color(0xFF6495ED)
+                Priority.LOW -> Color(0xFF007900)
             }
         ),
         modifier = Modifier.size(22.dp),
@@ -471,62 +504,365 @@ fun CustomSearchBar(
     onTextChanged: (String) -> Unit
 ) {
 
+    // 搜索框输入状态和动画
     var searchText by remember { mutableStateOf("") }
+    var isSearchBoxVisible by remember { mutableStateOf(false) }
 
-    Row (
+    Row(
         modifier = Modifier
-            .padding(16.dp, 6.dp, 16.dp, 6.dp)
             .fillMaxWidth()
-            .height(44.dp)
-            //.border(1.dp, Color.Red)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color(0xFFE4DBCF)),
-        verticalAlignment = Alignment.CenterVertically
-    ){
+            .height(40.dp)
+            .clip(RoundedCornerShape(28.dp)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
 
-        BasicTextField(
-            value = searchText,
-            onValueChange = { newText ->
-                searchText = newText
-                onTextChanged(newText)
-            },
+        // menu
+        Icon(
             modifier = Modifier
-                .padding(start = 18.dp)
-                //.border(1.dp, Color.Blue)
-                .fillMaxWidth(0.85f),
-            textStyle = TextStyle(fontSize = 14.sp)
-        ) {
-            if (searchText.isEmpty()) {
-                Text(
-                    text = "搜搜看",
-                    color = Color(0xFF615959),
-                    fontSize = 15.sp
+                .fillMaxWidth(0.14f),
+            imageVector = Icons.Default.Menu,
+            contentDescription = "侧边栏菜单"
+        )
+
+        // search
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(30.dp))
+                .height(30.dp)
+                // 设置背景颜色，并指定同样大小的圆角
+                .fillMaxWidth(0.86f)
+                .background(
+                    if (isSearchBoxVisible) Color.White else Color.Transparent,
+                    shape = RoundedCornerShape(30.dp)
                 )
+                .border(
+                    1.dp,
+                    if (isSearchBoxVisible) Color.LightGray else Color.Transparent,
+                    RoundedCornerShape(30.dp)
+                ),
+            contentAlignment = Alignment.Center
+
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                IconButton(
+                    onClick = { isSearchBoxVisible = true },
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(start = 6.dp)
+                        .fillMaxWidth(0.2f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "搜索",
+                        tint = Color.Black
+                    )
+                }
+
+                AnimatedVisibility(
+                    modifier = Modifier.fillMaxWidth(0.95f),
+                    visible = isSearchBoxVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.CenterVertically)
+                            .padding(start = 2.dp)
+                            //.border(1.dp,Color.Blue)
+                            .fillMaxWidth(1f),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BasicTextField(
+                            value = searchText,
+                            onValueChange = { newText ->
+                                searchText = newText
+                                onTextChanged(newText)
+                            },
+                            modifier = Modifier
+                                .align(Alignment.CenterVertically)
+                                .padding(start = 5.dp)
+                                .fillMaxWidth(0.8f),
+                            textStyle = TextStyle(fontSize = 14.sp),
+
+                            ) {
+
+                            if (searchText.isEmpty()) {
+                                Text(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.9f),
+                                    text = "搜搜看",
+                                    color = Color(0xFF615959),
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            it()
+                        }
+                        // 关闭搜索
+                        IconButton(
+                            onClick = { isSearchBoxVisible = false },
+                            modifier = Modifier
+                                .height(20.dp)
+                                .align(Alignment.CenterVertically)
+                                .fillMaxWidth(1f),
+                        )
+                        {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "清除搜索内容",
+                                tint = Color.Black,
+                            )
+                        }
+                    }
+                }
+
             }
-            it()
         }
-        Box (
+
+        // other
+        Icon(
             modifier = Modifier
-                //.border(1.dp, Color.Black)
-                .padding(4.dp)
-
-                .aspectRatio(1f)
-                .clip(CircleShape)
-
-                .background(Color(0xFFE7A46C))
-        ){
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "搜索",
-                Modifier
-                    .size(24.dp)
-                    .align(Alignment.Center),
-                tint = Color.White
-            )
-        }
-
+                .fillMaxWidth(1f),
+            imageVector = Icons.Default.DateRange,
+            contentDescription = "其他功能"
+        )
     }
 
 
 }
 
+// 自定义滑块
+@Composable
+fun SwitchWithIconExample() {
+    var checked by remember { mutableStateOf(true) }
+
+    Switch(
+        modifier = Modifier,
+        checked = checked,
+        onCheckedChange = {
+            checked = it
+        },
+        thumbContent = if (checked) {
+            {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize),
+                )
+            }
+        } else {
+            null
+        }
+    )
+}
+
+@Composable
+fun CustomCalendar() {
+
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    // 日历
+    Box(
+        modifier = Modifier
+            .padding(6.dp, 0.dp, 6.dp, 0.dp)
+            .clip(RoundedCornerShape(10.dp))
+
+    ) {
+        Column(
+            modifier = Modifier
+                .background(Color.White)
+        ) {
+            Row(
+                modifier = Modifier
+                    //.border(1.dp, Color.Red)
+                    .padding(10.dp, 10.dp, 10.dp, 0.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val currentYearMonth by remember {
+                    mutableStateOf(
+                        YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-M"))
+                    )
+                }
+                Text(text = currentYearMonth, fontSize = 24.sp)
+
+                Row(
+                    modifier = Modifier,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "活跃低", fontSize = 12.sp)
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        imageVector = Icons.Default.FavoriteBorder,
+                        contentDescription = "活跃低"
+                    )
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        imageVector = Icons.Default.FavoriteBorder,
+                        contentDescription = "活跃中"
+                    )
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        imageVector = Icons.Default.FavoriteBorder,
+                        contentDescription = "活跃高"
+                    )
+                    Text(text = "高", fontSize = 12.sp)
+                }
+
+
+            }
+
+            Column(
+                modifier = Modifier.padding(6.dp, 0.dp, 6.dp, 10.dp)
+            ) {
+
+                DisplayCurrentWeekDates(
+                    onDateSelected = { date ->
+                        selectedDate = date
+                        // 在这里添加更多日期被点击后的处理逻辑，例如打印日期
+                        println("Selected date: $date")
+                    },
+                    selectedDate = selectedDate,
+                    today = LocalDate.now()
+                )
+
+            }
+
+        }
+    }
+}
+
+val weekdayChineseMap = mapOf(
+    "MON" to "一",
+    "TUE" to "二",
+    "WED" to "三",
+    "THU" to "四",
+    "FRI" to "五",
+    "SAT" to "六",
+    "SUN" to "日"
+)
+
+
+// 在使用此 Composable 时，传入一个处理日期选择的回调函数
+@Composable
+fun DisplayCurrentWeekDates(
+    onDateSelected: (LocalDate) -> Unit,
+    selectedDate: LocalDate?,
+    today: LocalDate
+) {
+    val firstDayOfWeek = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DayOfWeek.entries.forEach { day ->
+            val shortWeekday = day.toString().substring(0, 3).uppercase(Locale.ENGLISH)
+            val chineseWeekday = weekdayChineseMap[shortWeekday]
+            Text(
+                modifier = Modifier,
+                text = chineseWeekday ?: shortWeekday,
+                fontSize = 16.sp
+            )
+        }
+
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 0..6) {
+
+            val currentDate = firstDayOfWeek.plusDays(i.toLong())
+            CustomBottomBackgroundTextButton(
+                currentDate,
+                isSelected = selectedDate?.isEqual(currentDate) == true,
+                isToday = currentDate == today,
+                onClick = {
+                    Log.d("DisplayCurrentWeekDates", "Clicked date: $currentDate, setting as selected.")
+                    onDateSelected(currentDate)
+                },
+                backgroundColor = Color(0x12345678),
+                selectedBorderColor = Color.Blue,
+            ) {
+                Text(
+                    text = currentDate.dayOfMonth.toString(),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+
+// 自定义日期选项样式
+@Composable
+fun CustomBottomBackgroundTextButton(
+    currentDate: LocalDate,
+    isSelected: Boolean = false, // 表示当前日期是否被选中
+    isToday: Boolean = false, // 判断是否为今天
+    onClick: () -> Unit,
+    selectedBorderColor: Color = Color.Blue,
+    todayBorderColor: Color = Color.Red,
+    backgroundColor: Color = Color(0x12345678),
+    content: @Composable () -> Unit
+) {
+    val borderModifier = when {
+        isToday -> Modifier.border(1.dp, todayBorderColor, RoundedCornerShape(4.dp))
+        isSelected && !isToday -> Modifier.border(1.dp, selectedBorderColor, RoundedCornerShape(4.dp))
+        else -> Modifier.clip(RoundedCornerShape(4.dp))
+    }
+    Log.d("CustomBottomBackgroundTextButton", "currentDate: ${currentDate}, isSelected: $isSelected")
+    Surface(
+        modifier = Modifier
+            .then(borderModifier)
+            .then(Modifier.clickable(onClick = onClick))
+            .clip(RoundedCornerShape(4.dp)), // 可选，用于添加圆角
+        color = backgroundColor,
+        shape = RoundedCornerShape(4.dp)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 8.dp) // 可根据需求调整内边距
+        ) {
+            content()
+        }
+    }
+}
+
+// 自定义标题栏 + 切换按钮样式
+@Composable
+fun CustomTitle() {
+    Row {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .padding(top = 4.dp)
+        ) {
+            Text(text = "代办", fontSize = 26.sp)
+            Text(text = "每日计划都在这里", fontSize = 12.sp)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth(1f)
+                .padding(top = 4.dp, end = 8.dp)
+                .border(1.dp, Color.LightGray),
+            horizontalArrangement = Arrangement.End
+        ) {
+            SwitchWithIconExample()
+        }
+    }
+}
