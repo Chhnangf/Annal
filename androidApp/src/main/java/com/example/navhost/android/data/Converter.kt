@@ -3,7 +3,10 @@ package com.example.navhost.android.data
 import androidx.room.TypeConverter
 import com.example.navhost.android.data.model.Priority
 import com.example.navhost.android.data.model.TodoStatus
+import java.time.Instant
+import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
@@ -70,6 +73,19 @@ class Converter {
     @TypeConverter
     fun toLocalTime(databaseString: String?): LocalTime? {
         return databaseString?.let { LocalTime.parse(it, DateTimeFormatter.ISO_TIME) }
+    }
+
+    /**
+     *  4-15 对数据库日期LocalDateTime格式的转换
+     */
+    @TypeConverter
+    fun fromTimestamp(value: Long?): LocalDateTime? {
+        return value?.let { LocalDateTime.ofInstant(Instant.ofEpochSecond(it), ZoneOffset.UTC) }
+    }
+
+    @TypeConverter
+    fun dateToTimestamp(localDateTime: LocalDateTime?): Long? {
+        return localDateTime?.toInstant(ZoneOffset.UTC)?.epochSecond
     }
 }
 

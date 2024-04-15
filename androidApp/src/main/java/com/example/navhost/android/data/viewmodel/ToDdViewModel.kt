@@ -38,36 +38,32 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     private val toDoDao: ToDoDao
     private val repository: ToDoRepository
 
-    private val sortedHighPriority: StateFlow<List<ToDoData>>
-    private val sortedLowPriority: StateFlow<List<ToDoData>>
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
+    val selectedDate: StateFlow<LocalDate> get() = _selectedDate
+
 
     init {
+
         val database = ToDoDatabase.getDatabase(application)
         toDoDao = database.toDoDao()
-
         // 创建并初始化ToDoRepository实例
         repository = ToDoRepository(toDoDao)
 
-        sortedHighPriority = repository.sortByHighPriority.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            emptyList()
-        )
-        sortedLowPriority = repository.sortByLowPriority.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            emptyList()
-        )
-
         // 初始化数据表数据
         viewModelScope.launch {
-            fetchTodoBoxesWithTodos()
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
 
     // 添加获取单个待办事项的方法
     fun getTodoById(id: Long): Flow<ToDoData> {
         return repository.getTodoById(id)
+    }
+    fun deleteItem(toDoData: ToDoData) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteItem(toDoData)
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
     }
 
 
@@ -81,7 +77,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
             // 添加以下代码，判断是否存在提醒时间并安排通知
             val delay = calculateReminderDelay(toDoData)
-            Log.d("ReminderWorker_S", "Schedule Reminder at ${LocalDateTime.now()} with delay of $delay ms for todo: ${toDoData.title}")
+            Log.d("ToDoViewModel", "insertOrUpdateData -> reminderTime: $selectedDate.value with delay of $delay ms for todo: ${toDoData.title}")
 
             if (toDoData.reminderTime != null) {
                 if (delay > 0) {
@@ -98,22 +94,10 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
                     WorkManager.getInstance(getApplication()).enqueue(workRequest)
                 }
             }
-            fetchTodoBoxesWithTodos()
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
 
-    fun deleteItem(toDoData: ToDoData) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteItem(toDoData)
-            fetchTodoBoxesWithTodos()
-        }
-    }
-
-    fun deleteAll() {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteAll()
-        }
-    }
 
     /**
      *  for checkbox
@@ -122,49 +106,33 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val updatedTodo = todo.copy(isChecked = isChecked)
             repository.updateData(updatedTodo)
-            fetchTodoBoxesWithTodos()
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
 
-    /**
-     *  for todoBoxs with todos
-     */
-    // 使用MutableStateFlow存储带有待办事项的收纳盒集合
-    private val _boxesWithTodos  = MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
-    val todoBoxesWithTodos: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> get() = _boxesWithTodos
 
-    // 异步获取带有待办事项的收纳盒数据
-    private suspend fun fetchTodoBoxesWithTodos() {
-        // 在这里确保调用了数据库或其他来源获取数据，并且在数据准备好之后，使用_emit_方法更新_stateFlow_
-        val data = repository.getTodoBoxesWithTodos() // 假设repository中有获取数据的方法
-        _boxesWithTodos.emit(data) // 确保_boxesWithTodos_已被初始化，不会为空
-    }
 
-    // 获取所有收纳盒及其待办事项
-    suspend fun getTodoBoxesWithTodos(): List<Pair<ToDoBox, List<ToDoData>>> {
-        return repository.getTodoBoxesWithTodos()
-    }
 
     // 2024-4-8-3：24
     // 插入新的收纳盒
     fun insertBox(box: ToDoBox) = viewModelScope.launch(Dispatchers.IO) {
         val newBoxId = repository.insertBox(box)
         if (newBoxId > 0) {
-            Log.d("ToDoBoxCreation", "New box created with ID: $newBoxId")
+            Log.d("ToDoViewModel", "New box created with ID: $newBoxId")
         } else {
-            Log.w("ToDoBoxCreation", "Failed to create new box or get its ID.")
+            Log.w("ToDoViewModel", "Failed to create new box or get its ID.")
         }
         // 更新StateFlow中的数据
-        fetchTodoBoxesWithTodos()
+        viewModelScope.launch(Dispatchers.Main) {
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
     }
-
 
     // 根据ID删除收纳盒
     fun deleteTodoBoxById(boxId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTodoBoxById(boxId)
-            // 更新收纳盒与待办事项列表
-            fetchTodoBoxesWithTodos()
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
 
@@ -173,7 +141,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
      */
     // 搜索查询 StateFlow
     private val _searchQuery = MutableStateFlow("")
-
     // 用户输入内容的接口，将数据存储到_searchQuery中供后续读取
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -188,16 +155,39 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     val filteredBoxesWithTodos: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> = _searchQuery.flatMapLatest { query ->
         when {
             // 搜索栏为空时显示所有盒子及其内容
-            query.isEmpty() -> todoBoxesWithTodos
+            query.isEmpty() -> todoBoxesWithTodosByDate
             // 搜索栏有内容时遍历titile是否匹配，返回其盒子及其内容
-            else -> todoBoxesWithTodos.map { boxes ->
+            else -> todoBoxesWithTodosByDate.map { boxes ->
                 boxes.map { (box, todos) ->
                     box to todos.filter { todo -> todo.status != TodoStatus.DELETED && todo.title.contains(query, ignoreCase = true) }
                 }.filter { (_, filteredTodos) -> filteredTodos.isNotEmpty() }
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+
+    // 4-15新增对数据库日期字段操作的api
+    private val _todoBoxesWithTodosByDate = MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
+    val todoBoxesWithTodosByDate: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> get() = _todoBoxesWithTodosByDate
+
+    private suspend fun fetchTodoBoxesWithTodosByModifiedDate(selectedDate: LocalDate) {
+
+        val result = repository.getTodoBoxesWithTodosByModifiedDate(selectedDate)
+        Log.d("ToDoViewModel", "fetchTodoBoxesWithTodosByModifiedDate result: $result")
+        _todoBoxesWithTodosByDate.emit(result)
+        _selectedDate.value = selectedDate
+
+    }
+
+    fun fetchTodoBoxesBySelectedDate(selected: LocalDate) = viewModelScope.launch(Dispatchers.IO) {
+        val result = repository.getTodoBoxesWithTodosByModifiedDate(selected)
+        _todoBoxesWithTodosByDate.emit(result)
+        fetchTodoBoxesWithTodosByModifiedDate(selected)
+    }
+
 }
+
+
+
 
 fun calculateReminderDelay(toDoData: ToDoData): Long {
 
