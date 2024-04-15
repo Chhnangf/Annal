@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import java.time.LocalDateTime
 import java.time.LocalTime
 
 /**
@@ -64,6 +65,9 @@ data class ToDoData(
     var isChecked: Boolean = false,
     var reminderTime: LocalTime? = null, // 新增字段：提醒时间
     var status: TodoStatus = TodoStatus.PENDING,
+    // 4-15 新增日期字段
+    var createdAt: LocalDateTime = LocalDateTime.now(),
+    var lastModifiedAt: LocalDateTime = LocalDateTime.now(),
     @ColumnInfo(index = true)
     val todo_box_id: Long? = null,
 )

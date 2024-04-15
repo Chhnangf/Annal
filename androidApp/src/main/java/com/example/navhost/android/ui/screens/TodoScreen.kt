@@ -57,8 +57,11 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,6 +91,24 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
+// 创建一个CompositionLocal来存放selectedDate
+val LocalSelectedDate = compositionLocalOf<MutableState<LocalDate>> { mutableStateOf(LocalDate.now()) }
+
+// 定义一个负责管理selectedDate的Composable
+@Composable
+fun SelectedDateManager(
+    onDateSelected: (LocalDate) -> Unit,
+): MutableState<LocalDate> {
+    val selectedDateState = remember { mutableStateOf(LocalDate.now()) }
+
+    fun updateSelectedDate(date: LocalDate) {
+        selectedDateState.value = date
+        onDateSelected(date)
+    }
+
+    return selectedDateState
+}
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -99,6 +120,11 @@ fun TodosScreen(
     // 订阅收纳盒及其内容数据流 && 搜索栏相关
     var searchQuery by remember { mutableStateOf("") }
     val filteredBoxesWithTodos by todoViewModel.filteredBoxesWithTodos.collectAsState(initial = emptyList())
+
+    // 4-15新增以日期为主导的数据流订阅
+    val boxesWithTodos by todoViewModel.todoBoxesWithTodosByDate.collectAsState()
+    // 引入SelectedDateManager，并传入相应的日期选择回调
+    val selectedDateState = SelectedDateManager(todoViewModel::fetchTodoBoxesBySelectedDate)
 
 
     LaunchedEffect(key1 = todoViewModel) {
@@ -125,8 +151,18 @@ fun TodosScreen(
                 // 主题（诗文 + 按钮）
                 CustomTitle()
 
-                // 日历
-                CustomCalendar()
+                CompositionLocalProvider(LocalSelectedDate provides selectedDateState) {
+                    selectedDateState.value.let { customDate ->
+                        CustomCalendar(
+                            todoViewModel = todoViewModel,
+                            onDateSelected = { selectedDate ->
+                                selectedDateState.value = selectedDate
+                                todoViewModel.fetchTodoBoxesBySelectedDate(selectedDate)
+                            },
+                            selectedDate = customDate,
+                        )
+                    }
+                }
 
                 Box (
                     modifier = Modifier
@@ -150,7 +186,8 @@ fun TodosScreen(
                     .verticalScroll(state = rememberScrollState())
                     .padding(top = 240.dp, bottom = 44.dp)
             ) {
-                filteredBoxesWithTodos.forEach { (todoBox, todoDatas) ->
+                // *** 遍历数据表显示内容 *** //
+                boxesWithTodos.forEach { (todoBox, todoDatas) ->
                     TodoBox(
                         todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
                         title = todoBox.title,
@@ -199,22 +236,27 @@ fun TodosScreen(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("新建收纳盒") },
+            title = { Text("新建标题") },
             text = {
 
                 TextField(
                     value = boxTitle,
                     onValueChange = { boxTitle = it },
-                    label = { Text("收纳盒标题") }
+                    label = { Text("#") }
                 )
             },
             confirmButton = {
+                val currentDate = LocalSelectedDate.current.value
                 Button(
                     onClick = {
-                        // 调用todoViewModel的方法新建收纳盒并持久化存储
-                        val newBox = ToDoBox(title = boxTitle)
-                        todoViewModel.insertBox(newBox)
-
+                        Log.d("TodosScreen", "Selected date before creating new box: ${selectedDateState.value} ..  $currentDate")
+                        val newBox = selectedDateState.value.let { selectedDate ->
+                            ToDoBox(title = boxTitle, lastModifiedAt = selectedDate.atStartOfDay())
+                        }
+                        newBox.let { todoViewModel.insertBox(it) }
+                        todoViewModel.fetchTodoBoxesBySelectedDate(selectedDateState.value)
+                        // 重置 boxTitle 和 showDialog
+                        boxTitle = ""
                         showDialog = false
                     }
                 ) {
@@ -664,9 +706,11 @@ fun SwitchWithIconExample() {
 }
 
 @Composable
-fun CustomCalendar() {
-
-    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+fun CustomCalendar(
+    todoViewModel: ToDoViewModel,
+    onDateSelected: (LocalDate) -> Unit, // 修改这里的参数类型
+    selectedDate: LocalDate
+) {
 
     // 日历
     Box(
@@ -725,10 +769,11 @@ fun CustomCalendar() {
             ) {
 
                 DisplayCurrentWeekDates(
-                    onDateSelected = { date ->
-                        selectedDate = date
+                    onDateSelected = { selected  ->
+                        onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
+                        todoViewModel.fetchTodoBoxesBySelectedDate(selected)
                         // 在这里添加更多日期被点击后的处理逻辑，例如打印日期
-                        println("Selected date: $date")
+                        println("Selected date: $selected")
                     },
                     selectedDate = selectedDate,
                     today = LocalDate.now()
@@ -813,7 +858,7 @@ fun CustomBottomBackgroundTextButton(
     currentDate: LocalDate,
     isSelected: Boolean = false, // 表示当前日期是否被选中
     isToday: Boolean = false, // 判断是否为今天
-    onClick: () -> Unit,
+    onClick: (LocalDate) -> Unit, // 修改这里，使onClick接收LocalDate作为参数
     selectedBorderColor: Color = Color.Blue,
     todayBorderColor: Color = Color.Red,
     backgroundColor: Color = Color(0x12345678),
@@ -828,7 +873,7 @@ fun CustomBottomBackgroundTextButton(
     Surface(
         modifier = Modifier
             .then(borderModifier)
-            .then(Modifier.clickable(onClick = onClick))
+            .then(Modifier.clickable(onClick = { onClick(currentDate) })) // 将当前日期传入onClick回调
             .clip(RoundedCornerShape(4.dp)), // 可选，用于添加圆角
         color = backgroundColor,
         shape = RoundedCornerShape(4.dp)

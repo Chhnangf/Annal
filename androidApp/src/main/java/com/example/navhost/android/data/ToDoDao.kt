@@ -11,6 +11,7 @@ import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoBoxWithTodoDatas
 import com.example.navhost.android.data.model.ToDoData
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDateTime
 
 @Dao
 interface ToDoDao {
@@ -81,4 +82,10 @@ interface ToDoDao {
     @Query("DELETE FROM todo_box WHERE id = :boxId")
     suspend fun deleteTodoBoxById(boxId: Long)
 
+    // 4-15 对日期字段的数据库操作支持
+    @Query("SELECT * FROM todo_box WHERE lastModifiedAt >= :startDate AND lastModifiedAt < :endDate")
+    suspend fun getBoxesByModifiedDate(startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoBox>
+
+    @Query("SELECT * FROM todo_data WHERE todo_box_id = :boxId AND lastModifiedAt >= :startDate AND lastModifiedAt < :endDate AND status != 'DELETED'")
+    suspend fun getTodosByBoxIdAndModifiedDate(boxId: Long, startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
 }

@@ -6,6 +6,8 @@ import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.model.TodoStatus
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 
@@ -85,6 +87,22 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
     // 根据ID删除收纳盒
     suspend fun deleteTodoBoxById(boxId: Long) {
         toDoDao.deleteTodoBoxById(boxId)
+    }
+
+    // 4-15新增对数据库日期字段操作的api
+    // 获取指定日期关联的待办盒子及其待办事项
+    suspend fun getTodoBoxesWithTodosByModifiedDate(selectedDate: LocalDate): List<Pair<ToDoBox, List<ToDoData>>> {
+        val dateStart = selectedDate.atStartOfDay()
+        //val dateEnd = dateStart.plusDays(1) // 包含整天的待办事项
+        val dateEnd = selectedDate.atTime(LocalTime.MAX)
+
+        val boxes = toDoDao.getBoxesByModifiedDate(dateStart, dateEnd)
+        return boxes.map { box ->
+            Log.d("ToDoRepository", "todo by date: ${box.title}, dateStart: $dateStart, dateEnd: $dateEnd")
+            val todos = toDoDao.getTodosByBoxIdAndModifiedDate(box.id!!, dateStart, dateEnd)
+            val todoStates = todos.filter { it.status != TodoStatus.DELETED }
+            Pair(box, todoStates)
+        }
     }
 
 }

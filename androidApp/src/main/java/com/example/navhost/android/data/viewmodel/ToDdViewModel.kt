@@ -41,6 +41,14 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     private val sortedHighPriority: StateFlow<List<ToDoData>>
     private val sortedLowPriority: StateFlow<List<ToDoData>>
 
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
+    val selectedDate: StateFlow<LocalDate> get() = _selectedDate
+
+    // 提供一个更改选定日期的方法
+    fun setSelectedDate(date: LocalDate) {
+        _selectedDate.value = date
+    }
+
     init {
         val database = ToDoDatabase.getDatabase(application)
         toDoDao = database.toDoDao()
@@ -109,11 +117,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteAll() {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteAll()
-        }
-    }
 
     /**
      *  for checkbox
@@ -155,7 +158,9 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             Log.w("ToDoBoxCreation", "Failed to create new box or get its ID.")
         }
         // 更新StateFlow中的数据
-        fetchTodoBoxesWithTodos()
+        viewModelScope.launch(Dispatchers.Main) {
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
     }
 
 
@@ -164,7 +169,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTodoBoxById(boxId)
             // 更新收纳盒与待办事项列表
-            fetchTodoBoxesWithTodos()
+            // fetchTodoBoxesWithTodos()
         }
     }
 
@@ -197,7 +202,29 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+
+    // 4-15新增对数据库日期字段操作的api
+    private val _todoBoxesWithTodosByDate = MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
+    val todoBoxesWithTodosByDate: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> get() = _todoBoxesWithTodosByDate
+
+    private suspend fun fetchTodoBoxesWithTodosByModifiedDate(selectedDate: LocalDate) {
+
+        val result = repository.getTodoBoxesWithTodosByModifiedDate(selectedDate)
+        _todoBoxesWithTodosByDate.emit(result)
+
+    }
+
+
+    fun fetchTodoBoxesBySelectedDate(selected: LocalDate) = viewModelScope.launch(Dispatchers.IO) {
+        // ...
+        val result = repository.getTodoBoxesWithTodosByModifiedDate(selected)
+        _todoBoxesWithTodosByDate.emit(result)
+    }
+
 }
+
+
+
 
 fun calculateReminderDelay(toDoData: ToDoData): Long {
 
