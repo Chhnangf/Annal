@@ -2,9 +2,9 @@ package com.example.navhost.android.data.repository
 
 import android.util.Log
 import com.example.navhost.android.data.ToDoDao
+import com.example.navhost.android.data.model.Status
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
-import com.example.navhost.android.data.model.TodoStatus
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.LocalTime
@@ -59,7 +59,7 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
             Log.d("ToDoRepository", "boxs: ${box.title}, dateStart: $dateStart, dateEnd: $dateEnd")
             val todos = toDoDao.getTodosByBoxIdAndModifiedDate(box.id!!, dateStart, dateEnd)
             Log.d("ToDoRepository", "todos: $todos")
-            val todoStates = todos.filter { it.status != TodoStatus.DELETED }
+            val todoStates = todos.filter { it.status != Status.DELETED }
             Pair(box, todoStates)
         }
     }

@@ -10,7 +10,7 @@ import androidx.navigation.NavHostController
 import com.example.navhost.android.SessionViewModel
 
 @Composable
-fun PublishsScreen(
+fun PublishScreen(
     navHostController: NavHostController,
     sessionViewModel: SessionViewModel
 ) {

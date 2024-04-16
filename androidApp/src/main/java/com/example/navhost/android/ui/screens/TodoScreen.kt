@@ -99,12 +99,8 @@ val LocalSelectedDate = compositionLocalOf<MutableState<LocalDate>> { mutableSta
 fun SelectedDateManager(
     onDateSelected: (LocalDate) -> Unit,
 ): MutableState<LocalDate> {
-    val selectedDateState = remember { mutableStateOf(LocalDate.now()) }
 
-    fun updateSelectedDate(date: LocalDate) {
-        selectedDateState.value = date
-        onDateSelected(date)
-    }
+    val selectedDateState = remember { mutableStateOf(LocalDate.now()) }
 
     return selectedDateState
 }
@@ -125,7 +121,7 @@ fun TodosScreen(
     val boxesWithTodos by todoViewModel.todoBoxesWithTodosByDate.collectAsState()
     // 引入SelectedDateManager，并传入相应的日期选择回调
     val selectedDateState = SelectedDateManager(todoViewModel::fetchTodoBoxesBySelectedDate)
-
+    val selectedDateString = selectedDateState.value.toString()
 
     LaunchedEffect(key1 = todoViewModel) {
         todoViewModel.searchQuery.collectLatest { query ->
@@ -195,11 +191,12 @@ fun TodosScreen(
                         todos = todoDatas,
                         onEdit = { todoId, _ ->
                             // 实现导航到编辑页面的逻辑
-                            navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}")
+                            navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
                         },
                         onAddButtonClick = {
+
                             // 实现添加待办事项的逻辑
-                            navHostController.navigate("todos/edit/-1?isNew=true&todoBoxId=${todoBox.id}")
+                            navHostController.navigate("todos/edit/-1?isNew=true&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
                         },
                         onTodoCheckedChange = { todo, isChecked ->
                             // 实现待办事项的勾选状态变化逻辑
@@ -247,21 +244,18 @@ fun TodosScreen(
                 )
             },
             confirmButton = {
-                val currentDate = LocalSelectedDate.current.value
                 Button(
                     onClick = {
-                        val newBox = selectedDateState.value.let { selectedDate ->
-                            ToDoBox(title = boxTitle, lastModifiedAt = selectedDate.atStartOfDay())
-                        }
+                        val newBox = ToDoBox(title = boxTitle, selectDateAt = selectedDateState.value.atStartOfDay())
                         newBox.let { todoViewModel.insertBox(it) }
                         todoViewModel.fetchTodoBoxesBySelectedDate(selectedDateState.value)
-                        Log.d("ToDosScreen", "AlertDialog -> insertbox: selectedDateState.value: ${selectedDateState.value} currentDate: $currentDate")
+                        Log.d("ToDosScreen", "AlertDialog -> insertbox: selectedDateState.value: ${selectedDateState.value}")
                         // 重置 boxTitle 和 showDialog
                         boxTitle = ""
                         showDialog = false
                     }
                 ) {
-                    Text("确定")
+                    Text("创建")
                 }
             },
             dismissButton = {

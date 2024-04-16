@@ -18,7 +18,7 @@ import com.example.navhost.android.markdown.MarkdownText
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "RememberReturnType")
 @Composable
-fun SettingsScreen(
+fun SettingScreen(
     navHostController: NavHostController,
     todoViewModel: ToDoViewModel,
 ) {

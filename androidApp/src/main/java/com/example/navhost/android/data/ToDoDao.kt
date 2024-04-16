@@ -83,9 +83,10 @@ interface ToDoDao {
     suspend fun deleteTodoBoxById(boxId: Long)
 
     // 4-15 对日期字段的数据库操作支持
-    @Query("SELECT * FROM todo_box WHERE lastModifiedAt >= :startDate AND lastModifiedAt < :endDate")
+    @Query("SELECT * FROM todo_box WHERE selectDateAt >= :startDate AND selectDateAt < :endDate")
     suspend fun getBoxesByModifiedDate(startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoBox>
 
-    @Query("SELECT * FROM todo_data WHERE todo_box_id = :boxId AND lastModifiedAt >= :startDate AND lastModifiedAt < :endDate AND status != 'DELETED'")
+    @Query("SELECT * FROM todo_data WHERE todo_box_id = :boxId AND selectDateAt >= :startDate AND selectDateAt < :endDate AND status != 'DELETED'")
     suspend fun getTodosByBoxIdAndModifiedDate(boxId: Long, startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
+
 }

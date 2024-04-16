@@ -9,9 +9,9 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.ToDoDatabase
+import com.example.navhost.android.data.model.Status
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
-import com.example.navhost.android.data.model.TodoStatus
 import com.example.navhost.android.data.repository.ToDoRepository
 import com.example.navhost.android.worker.ReminderWorker
 import kotlinx.coroutines.Dispatchers
@@ -20,9 +20,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -56,9 +58,10 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // 添加获取单个待办事项的方法
-    fun getTodoById(id: Long): Flow<ToDoData> {
+    suspend fun getTodoById(id: Long): Flow<ToDoData> {
         return repository.getTodoById(id)
     }
+
     fun deleteItem(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteItem(toDoData)
@@ -70,9 +73,13 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     fun insertOrUpdateData(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
 
-            when (toDoData.id?.let { toDoDao.getById(it) }) {
-                null -> repository.insertData(toDoData)
-                else -> repository.updateData(toDoData)
+            val existingTodo = toDoData.id?.let { repository.getTodoById(it) }
+            if (existingTodo == null) {
+                Log.d("ToDoViewModel", "Inserting todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value}")
+                repository.insertData(toDoData)
+            } else {
+                Log.d("ToDoViewModel", "Updating  todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value}")
+                repository.updateData(toDoData)
             }
 
             // 添加以下代码，判断是否存在提醒时间并安排通知
@@ -94,7 +101,9 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
                     WorkManager.getInstance(getApplication()).enqueue(workRequest)
                 }
             }
-            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+            viewModelScope.launch(Dispatchers.IO) {
+                fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+            }
         }
     }
 
@@ -109,8 +118,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
-
-
 
 
     // 2024-4-8-3：24
@@ -133,6 +140,25 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTodoBoxById(boxId)
             fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
+    }
+
+    fun updateTodoStatus(todoId: Long, newStatus: Status) {
+        viewModelScope.launch {
+
+            // 根据todoId获取该ToDoData数据
+            val existingTodo = repository.getTodoById(todoId)
+            // 订阅getTodoById返回的Flow，并使用transform修改数据
+            repository.getTodoById(todoId).transform { todoData ->
+                // 修改状态字段
+                todoData.status = newStatus
+                // 发送修改后的数据
+                emit(todoData)
+            }.firstOrNull()?.let { updatedTodo ->
+                // 将修改后的数据保存回数据库
+                repository.updateData(updatedTodo)
+            }
+
         }
     }
 
@@ -159,16 +185,24 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             // 搜索栏有内容时遍历titile是否匹配，返回其盒子及其内容
             else -> todoBoxesWithTodosByDate.map { boxes ->
                 boxes.map { (box, todos) ->
-                    box to todos.filter { todo -> todo.status != TodoStatus.DELETED && todo.title.contains(query, ignoreCase = true) }
+                    box to todos.filter { todo -> todo.status != Status.DELETED && todo.title.contains(query, ignoreCase = true) }
                 }.filter { (_, filteredTodos) -> filteredTodos.isNotEmpty() }
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
-    // 4-15新增对数据库日期字段操作的api
+    /**
+     *  4-15新增对数据库日期字段操作的api
+     *  订阅_todoBoxesWithTodosByDate 观察ToDoBox、ToDoData数据流
+     *  暴露todoBoxesWithTodosByDate 给ui层和数据层，提供获取value的方法
+     */
     private val _todoBoxesWithTodosByDate = MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
     val todoBoxesWithTodosByDate: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> get() = _todoBoxesWithTodosByDate
 
+
+
+    // getTodoBoxesWithTodosByModifiedDate获取ToDoBox、ToDoData表内容
+    // 更新_todoBoxesWithTodosByDate、_selectedDate
     private suspend fun fetchTodoBoxesWithTodosByModifiedDate(selectedDate: LocalDate) {
 
         val result = repository.getTodoBoxesWithTodosByModifiedDate(selectedDate)
@@ -178,6 +212,13 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     }
 
+    /**
+     *  1. ToDoScreen insertBox时调用此方法
+     *  2. ToDoScreen insertTodo时调用此方法
+     *  3. ToDoAddScreen updateTodo
+     *  4. ToDoAddScreen deleted 待实装
+     *  5.
+     */
     fun fetchTodoBoxesBySelectedDate(selected: LocalDate) = viewModelScope.launch(Dispatchers.IO) {
         val result = repository.getTodoBoxesWithTodosByModifiedDate(selected)
         _todoBoxesWithTodosByDate.emit(result)

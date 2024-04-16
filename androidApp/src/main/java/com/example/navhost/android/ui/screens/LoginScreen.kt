@@ -32,7 +32,7 @@ import com.example.navhost.android.ui.navigation.InitScreen
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun LoginsScreen(
+fun LoginScreen(
     navHostController: NavHostController,
     sessionViewModel: SessionViewModel
 ) {

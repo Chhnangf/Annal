@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
 
 
 @Composable
-fun SplashsScreen(
+fun SplashScreen(
     navHostController: NavHostController,
     sessionViewModel: SessionViewModel
 ) {

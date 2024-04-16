@@ -31,7 +31,7 @@ import com.example.navhost.android.SessionViewModel
 import com.example.navhost.android.ui.navigation.BottomTopScreen
 
 @Composable
-fun HomesScreen(
+fun HomeScreen(
     navController: NavHostController,
     sessionViewModel: SessionViewModel
 ) {

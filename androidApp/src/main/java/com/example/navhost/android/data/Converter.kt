@@ -2,7 +2,7 @@ package com.example.navhost.android.data
 
 import androidx.room.TypeConverter
 import com.example.navhost.android.data.model.Priority
-import com.example.navhost.android.data.model.TodoStatus
+import com.example.navhost.android.data.model.Status
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -48,16 +48,16 @@ class Converter {
     }
 
     @TypeConverter
-    fun fromTodoStatus(status: TodoStatus): String {
+    fun fromTodoStatus(status: Status): String {
         return status.displayText
     }
 
     @TypeConverter
-    fun toTodoStatus(statusText: String): TodoStatus {
+    fun toTodoStatus(statusText: String): Status {
         return when (statusText) {
-            TodoStatus.PENDING.displayText -> TodoStatus.PENDING
-            TodoStatus.COMPLETED.displayText -> TodoStatus.COMPLETED
-            TodoStatus.DELETED.displayText -> TodoStatus.DELETED
+            Status.PENDING.displayText -> Status.PENDING
+            Status.COMPLETED.displayText -> Status.COMPLETED
+            Status.DELETED.displayText -> Status.DELETED
             else -> throw IllegalArgumentException("Invalid todo status text: $statusText")
         }
     }

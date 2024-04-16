@@ -31,10 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.navhost.android.data.model.Priority
+import com.example.navhost.android.data.model.Status
 import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.viewmodel.ToDoViewModel
 import com.marosseleng.compose.material3.datetimepickers.time.domain.noSeconds
 import com.marosseleng.compose.material3.datetimepickers.time.ui.dialog.TimePickerDialog
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -47,6 +49,7 @@ fun ToDoAddScreen(
     todoId: Long? = null,
     isNew: Boolean = true,
     todoBoxId: Long, // 新增 todoBoxId 参数
+    selectedDate: LocalDate
 ) {
 
     Log.d("AddToDoScreen", "todoId: $todoId, isNew: $isNew, todoBoxId: $todoBoxId")
@@ -150,6 +153,7 @@ fun ToDoAddScreen(
                                 priority = selectedPriority,
                                 description = description,
                                 reminderTime = reminderTimeValue,
+                                selectDateAt = selectedDate.atStartOfDay()
                             )
                         } else {
                             todoId?.let { existingId ->
@@ -160,6 +164,7 @@ fun ToDoAddScreen(
                                     priority = selectedPriority,
                                     description = description,
                                     reminderTime = reminderTimeValue,
+                                    selectDateAt = selectedDate.atStartOfDay()
                                 )
                             }
                         }
@@ -179,7 +184,7 @@ fun ToDoAddScreen(
                         if (!title.isNullOrEmpty()) {
                             val deleteTodo =
                                 todoId?.let { ToDoData(it, title, selectedPriority, description) }
-                            deleteTodo?.let { todoViewModel.deleteItem(it) }
+                            deleteTodo?.let { it.id?.let { it1 -> todoViewModel.updateTodoStatus(it1, Status.DELETED) } }
                             // 返回到上一个目的地，即TodoScreen
                             nestedNavController.popBackStack()
                         } else {

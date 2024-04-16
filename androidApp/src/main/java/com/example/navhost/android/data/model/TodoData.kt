@@ -22,7 +22,7 @@ enum class Priority(val displayText: String) {
 /**
  *  状态：待完成/已完成/删除
  */
-enum class TodoStatus(val displayText: String) {
+enum class Status(val displayText: String) {
     PENDING("待完成"),
     COMPLETED("已完成"),
     DELETED("已删除");
@@ -64,9 +64,10 @@ data class ToDoData(
     var description: String?,
     var isChecked: Boolean = false,
     var reminderTime: LocalTime? = null, // 新增字段：提醒时间
-    var status: TodoStatus = TodoStatus.PENDING,
+    var status: Status = Status.PENDING,
     // 4-15 新增日期字段
     var createdAt: LocalDateTime = LocalDateTime.now(),
+    var selectDateAt: LocalDateTime = LocalDateTime.now(),
     var lastModifiedAt: LocalDateTime = LocalDateTime.now(),
     @ColumnInfo(index = true)
     val todo_box_id: Long? = null,
