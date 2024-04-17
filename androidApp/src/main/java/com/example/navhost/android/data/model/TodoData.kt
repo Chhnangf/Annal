@@ -1,5 +1,6 @@
 package com.example.navhost.android.data.model
 
+import android.media.Image
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -29,13 +30,15 @@ enum class Status(val displayText: String) {
     override fun toString(): String {
         return displayText
     }
-
-    // 使用：
-//    val status = TodoStatus.COMPLETED
-//    println(status.toString())  // 输出：“已完成”
 }
 
 
+/**
+ *  活跃：无/低/中/高，共4种
+ */
+enum class Active(val displayIcon: Image) {
+
+}
 
 /**
  *  待办数据模型
