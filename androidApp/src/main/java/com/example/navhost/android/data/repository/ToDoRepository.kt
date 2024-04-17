@@ -1,6 +1,5 @@
 package com.example.navhost.android.data.repository
 
-import android.util.Log
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.model.Status
 import com.example.navhost.android.data.model.ToDoBox
@@ -56,9 +55,9 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
 
         val boxes = toDoDao.getBoxesByModifiedDate(dateStart, dateEnd)
         return boxes.map { box ->
-            Log.d("ToDoRepository", "boxs: ${box.title}, dateStart: $dateStart, dateEnd: $dateEnd")
+            //Log.d("ToDoRepository", "boxs: ${box.title}, dateStart: $dateStart, dateEnd: $dateEnd")
             val todos = toDoDao.getTodosByBoxIdAndModifiedDate(box.id!!, dateStart, dateEnd)
-            Log.d("ToDoRepository", "todos: $todos")
+            //Log.d("ToDoRepository", "todos: $todos")
             val todoStates = todos.filter { it.status != Status.DELETED }
             Pair(box, todoStates)
         }
