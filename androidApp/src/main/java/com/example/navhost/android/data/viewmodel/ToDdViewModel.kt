@@ -10,6 +10,7 @@ import androidx.work.workDataOf
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.ToDoDatabase
 import com.example.navhost.android.data.model.Status
+import com.example.navhost.android.data.model.SubTask
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.repository.ToDoRepository
@@ -72,13 +73,17 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun insertOrUpdateData(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
+            val subTasks = toDoData.description?.let { processDescriptionIntoSubTasks(it) }
+            if (subTasks != null) {
+                toDoData.subTasks = subTasks
+            }
 
             val existingTodo = toDoData.id?.let { repository.getTodoById(it) }
             if (existingTodo == null) {
-                Log.d("ToDoViewModel", "Inserting todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value}")
+                Log.d("ToDoViewModel", "Inserting todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value} ${toDoData.subTasks}")
                 repository.insertData(toDoData)
             } else {
-                Log.d("ToDoViewModel", "Updating  todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value}")
+                Log.d("ToDoViewModel", "Updating  todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value} ${toDoData.subTasks}")
                 repository.updateData(toDoData)
             }
 
@@ -104,18 +109,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch(Dispatchers.IO) {
                 fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
             }
-        }
-    }
-
-
-    /**
-     *  for checkbox
-     */
-    fun onTodoCheckedChange(todo: ToDoData, isChecked: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val updatedTodo = todo.copy(isChecked = isChecked)
-            repository.updateData(updatedTodo)
-            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
 
@@ -224,6 +217,36 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         _todoBoxesWithTodosByDate.emit(result)
         fetchTodoBoxesWithTodosByModifiedDate(selected)
     }
+
+    // 4-20 for subTask
+    fun processDescriptionIntoSubTasks(description: String): List<SubTask> {
+        return description.split("\n").filter { it.isNotBlank() }.mapIndexed { index, line ->
+            SubTask(index = index, description = line.trim(), isChecked = false)
+        }
+    }
+
+    // 4-20 for subTask
+    fun onTodoCheckedChange(todo: ToDoData, isChecked: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedTodo = todo.copy(isChecked = isChecked)
+            repository.updateData(updatedTodo)
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
+    }
+
+    fun updateSubTaskCheckedState(todo: ToDoData, subTaskIndex: Int, isChecked: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedSubTask = todo.subTasks.getOrNull(subTaskIndex)?.copy(isChecked = isChecked)
+            if (updatedSubTask != null) {
+                val updatedTodo = todo.subTasks.map {
+                    if (it.index == subTaskIndex) updatedSubTask else it
+                }.let { todo.copy(subTasks = it) }
+                updatedTodo.let { repository.updateData(it) }
+            }
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
+    }
+
 
 }
 

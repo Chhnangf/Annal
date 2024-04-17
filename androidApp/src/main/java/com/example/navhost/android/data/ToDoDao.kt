@@ -90,3 +90,4 @@ interface ToDoDao {
     suspend fun getTodosByBoxIdAndModifiedDate(boxId: Long, startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
 
 }
+
