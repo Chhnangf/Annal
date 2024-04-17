@@ -3,6 +3,9 @@ package com.example.navhost.android.data
 import androidx.room.TypeConverter
 import com.example.navhost.android.data.model.Priority
 import com.example.navhost.android.data.model.Status
+import com.example.navhost.android.data.model.SubTask
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -57,6 +60,7 @@ class Converter {
         return when (statusText) {
             Status.PENDING.displayText -> Status.PENDING
             Status.COMPLETED.displayText -> Status.COMPLETED
+            Status.IN_PROGRESS.displayText -> Status.IN_PROGRESS
             Status.DELETED.displayText -> Status.DELETED
             else -> throw IllegalArgumentException("Invalid todo status text: $statusText")
         }
@@ -86,6 +90,18 @@ class Converter {
     @TypeConverter
     fun dateToTimestamp(localDateTime: LocalDateTime?): Long? {
         return localDateTime?.toInstant(ZoneOffset.UTC)?.epochSecond
+    }
+
+    // 4-20 for subCheckbox
+    @TypeConverter
+    fun fromSubTaskList(subTasks: List<SubTask>): String {
+        return Gson().toJson(subTasks)
+    }
+
+    @TypeConverter
+    fun toSubTaskList(json: String): List<SubTask> {
+        val gson = Gson()
+        return gson.fromJson(json, object : TypeToken<List<SubTask>>() {}.type)
     }
 }
 

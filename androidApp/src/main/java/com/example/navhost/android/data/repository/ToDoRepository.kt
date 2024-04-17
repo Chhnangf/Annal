@@ -3,6 +3,7 @@ package com.example.navhost.android.data.repository
 import android.util.Log
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.model.Status
+import com.example.navhost.android.data.model.SubTask
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 import kotlinx.coroutines.flow.Flow
@@ -25,9 +26,19 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
 
     suspend fun insertData(toDoData: ToDoData) {
         toDoDao.insertData(toDoData)
+        val subTasksTexts = toDoData.description!!.split("\n").filter { it.isNotBlank() }
+        val subTasks = subTasksTexts.mapIndexed { index, paragraph ->
+            SubTask(index, paragraph, false)
+        }
+
+        toDoData.subTasks = subTasks
+        toDoData.subTaskCount = subTasks.size
+        toDoDao.updateData(toDoData.copy(subTasks = subTasks))
     }
 
     suspend fun updateData(toDoData: ToDoData) {
+        val subTasksCount = toDoData.description?.split("\n").orEmpty().count { it.isNotBlank() } ?: 0
+        toDoData.subTaskCount = subTasksCount
         toDoDao.updateData(toDoData)
     }
 

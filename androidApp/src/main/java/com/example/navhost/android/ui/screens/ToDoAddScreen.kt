@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.navhost.android.data.model.Priority
@@ -70,6 +71,8 @@ fun ToDoAddScreen(
     }
     val formatter = DateTimeFormatter.ofPattern("HH:mm") // 创建一个时间格式化器
 
+    // 工具栏状态
+    var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
 
     /**
      *  使用LaunchedEffect来监听todoId的变化，
@@ -118,6 +121,13 @@ fun ToDoAddScreen(
                 singleLine = true
             )
 
+            // 悬浮工具栏放置在输入框下方
+            CustomToolbar(onAction = { newText ->
+                // 假设我们简单地将新文本追加到已有文本后面
+                textFieldValue = TextFieldValue(textFieldValue.text + newText)
+                // 实际上，应该根据当前光标位置插入文本，这需要更复杂的处理逻辑
+            })
+
             // 输入内容
             OutlinedTextField(
                 value = description,
@@ -133,6 +143,7 @@ fun ToDoAddScreen(
             PrioritySelector(
                 onPrioritySelected = { selectedPriority = it }
             )
+
 
             Row(
                 Modifier.fillMaxWidth(),
@@ -266,4 +277,12 @@ fun PrioritySelector(
     }
 }
 
+// 自定义悬浮工具栏
+@Composable
+fun CustomToolbar(onAction: (String) -> Unit) {
+    Row(modifier = Modifier.padding(8.dp)) {
+        Button(onClick = { onAction("# 1") }) { Text("H1") }
+        Button(onClick = { onAction("- [ ] ") }) { Text("Checklist") }
+    }
+}
 

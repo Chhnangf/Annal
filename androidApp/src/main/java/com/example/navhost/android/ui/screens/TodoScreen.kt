@@ -92,7 +92,8 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 // 创建一个CompositionLocal来存放selectedDate
-val LocalSelectedDate = compositionLocalOf<MutableState<LocalDate>> { mutableStateOf(LocalDate.now()) }
+val LocalSelectedDate =
+    compositionLocalOf<MutableState<LocalDate>> { mutableStateOf(LocalDate.now()) }
 
 // 定义一个负责管理selectedDate的Composable
 @Composable
@@ -122,7 +123,9 @@ fun TodosScreen(
     // 引入SelectedDateManager，并传入相应的日期选择回调
     val selectedDateState = SelectedDateManager(todoViewModel::fetchTodoBoxesBySelectedDate)
     val selectedDateString = selectedDateState.value.toString()
-
+    val handleSubTaskCheckedChange: (ToDoData, Int, Boolean) -> Unit = { todoData, index, subCheckboxChange ->
+        todoViewModel.onSubTaskCheckedChange(todoData, index, subCheckboxChange)
+    }
     LaunchedEffect(key1 = todoViewModel) {
         todoViewModel.searchQuery.collectLatest { query ->
             searchQuery = query
@@ -153,7 +156,10 @@ fun TodosScreen(
                             todoViewModel = todoViewModel,
                             onDateSelected = { selectedDate ->
                                 selectedDateState.value = selectedDate
-                                Log.d("ToDoScreen", "CompositionLocalProvider -> CustomCalendar: $selectedDate")
+                                Log.d(
+                                    "ToDoScreen",
+                                    "CompositionLocalProvider -> CustomCalendar: $selectedDate"
+                                )
                                 todoViewModel.fetchTodoBoxesBySelectedDate(selectedDate)
                             },
                             selectedDate = customDate,
@@ -161,13 +167,13 @@ fun TodosScreen(
                     }
                 }
 
-                Box (
+                Box(
                     modifier = Modifier
                         .height(20.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
-                ){
+                ) {
                     Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "下拉")
                 }
             }
@@ -206,6 +212,7 @@ fun TodosScreen(
                             // 实现删除收纳盒的逻辑
                             todoViewModel.deleteTodoBoxById(todoBoxId)
                         },
+                        onSubTaskCheckedChange = handleSubTaskCheckedChange
                     )
                 }
             }
@@ -246,10 +253,16 @@ fun TodosScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val newBox = ToDoBox(title = boxTitle, selectDateAt = selectedDateState.value.atStartOfDay())
+                        val newBox = ToDoBox(
+                            title = boxTitle,
+                            selectDateAt = selectedDateState.value.atStartOfDay()
+                        )
                         newBox.let { todoViewModel.insertBox(it) }
                         todoViewModel.fetchTodoBoxesBySelectedDate(selectedDateState.value)
-                        Log.d("ToDosScreen", "AlertDialog -> insertbox: selectedDateState.value: ${selectedDateState.value}")
+                        Log.d(
+                            "ToDosScreen",
+                            "AlertDialog -> insertbox: selectedDateState.value: ${selectedDateState.value}"
+                        )
                         // 重置 boxTitle 和 showDialog
                         boxTitle = ""
                         showDialog = false
@@ -280,6 +293,7 @@ fun TodoBox(
     onAddButtonClick: () -> Unit,
     onTodoCheckedChange: (ToDoData, Boolean) -> Unit,
     onDeleteBox: (Long) -> Unit, // 新增一个删除收纳盒的回调函数
+    onSubTaskCheckedChange : (todoData: ToDoData, index: Int,subCheckboxChange: Boolean) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(true) }
 
@@ -300,7 +314,7 @@ fun TodoBox(
                     .fillMaxWidth()
                     .height(35.dp)
                     .padding()
-                    .background(Color(0x9FB3B8A5).copy(alpha = 0.5f))
+                    //.background(Color(0x9FB3B8A5).copy(alpha = 0.5f))
                     .clickable(onClick = { isExpanded = !isExpanded })
                     .padding(start = 8.dp)
                 //.border(width = 1.dp, color = Color.Red)
@@ -350,6 +364,9 @@ fun TodoBox(
                                     isChecked
                                 )
                             },
+                            onSubTaskCheckedChange = { todo, index, newChecked ->
+                                onSubTaskCheckedChange(todo, index, newChecked)
+                            },
                         ) // 需要自行实现 ToDoItem
                     }
                 }
@@ -392,6 +409,7 @@ fun ToDosItem(
     todo: ToDoData,
     onEdit: (todoId: Long?, isNew: Boolean) -> Unit,
     onCheckedChange: (ToDoData, Boolean) -> Unit,
+    onSubTaskCheckedChange: (ToDoData, Int, Boolean) -> Unit, // 新增的回调参数
 ) {
     val rowAlpha = if (todo.isChecked == true) ContentAlpha.disabled else ContentAlpha.high
     Row(
@@ -466,11 +484,45 @@ fun ToDosItem(
             }
             Log.d("ToDosItem", "todoId: ${todo.id}, description: ${todo.description}")
             if (todo.description != "") {
-                MarkdownText(
-                    markdown = todo.description!!,
-                    style = MaterialTheme.typography.bodySmall,
-                    // 其他所需的参数...
-                )
+                val paragraphs = todo.description!!.split("\n").filter { it.isNotBlank() }
+                paragraphs.forEachIndexed { index, paragraph ->
+
+
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp)
+                        //.border(1.dp, Color.LightGray)
+                        //.height(40.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(bottom = 4.dp, end = 4.dp),
+                            //.border(1.dp, Color.LightGray)
+                        )
+                        {
+                            CustomCheckbox(
+                                checked = todo.isChecked,
+                                onCheckedChange = { newChecked ->
+                                    onSubTaskCheckedChange(todo, index, newChecked)
+                                },
+                                priority = todo.priority,
+                                isSubCheckbox = true
+                            )
+                        }
+                        MarkdownText(
+                            markdown = paragraph,
+                            style = MaterialTheme.typography.bodySmall,
+                            // 其他所需的参数...
+                        )
+                    }
+                }
+//                MarkdownText(
+//                    markdown = todo.description!!,
+//                    style = MaterialTheme.typography.bodySmall,
+//                    // 其他所需的参数...
+//                )
             }
 
             Box(
@@ -502,26 +554,34 @@ fun CustomCheckbox(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     priority: Priority,
+    isSubCheckbox: Boolean = false, // 新增的布尔型参数，用于区分母复选框与子复选框
 ) {
-    Surface(
-        shape = CircleShape,
-        contentColor = if (checked) MaterialTheme.colorScheme.onSurface else Color.Unspecified,
-        border = BorderStroke(
-            width = 2.dp,
-            color = when (priority) {
-                Priority.HIGH -> Color.Red
-                // Color(0xFFFF8C00)
-                Priority.MEDIUM -> Color(0xFF6495ED)
-                Priority.LOW -> Color(0xFF007900)
-            }
-        ),
-        modifier = Modifier.size(22.dp),
+    val shape = if (isSubCheckbox) CircleShape else CircleShape // RectangleShape 方形
+    val borderWidth = if (isSubCheckbox) 1.dp else 2.dp
+    val borderColor = if (isSubCheckbox) Color.Black else when (priority) {
+        Priority.HIGH -> Color.Red
+        Priority.MEDIUM -> Color(0xFF6495ED)
+        Priority.LOW -> Color(0xFF007900)
+    }
+    val boxSize = if (isSubCheckbox) 18.dp else 22.dp
+    val contentColor = if (checked) MaterialTheme.colorScheme.onSurface else Color.Unspecified
+    val boxPadding = 2.dp
+    val elevation = if (isSubCheckbox) 1.dp else 3.dp
 
-        elevation = 3.dp
+    Surface(
+        shape = shape,
+        contentColor = contentColor,
+        border = BorderStroke(
+            width = borderWidth,
+            color = borderColor
+        ),
+        modifier = Modifier.size(boxSize),
+
+        elevation = elevation
     ) {
         Box(
             modifier = Modifier
-                .padding(2.dp)
+                .padding(boxPadding)
                 .clickable(onClick = { onCheckedChange(!checked) }),
             contentAlignment = Alignment.Center
         ) {
@@ -535,6 +595,7 @@ fun CustomCheckbox(
         }
     }
 }
+
 
 @Composable
 fun CustomSearchBar(
@@ -565,99 +626,68 @@ fun CustomSearchBar(
         // search
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(30.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .height(30.dp)
                 // 设置背景颜色，并指定同样大小的圆角
                 .fillMaxWidth(0.86f)
                 .background(
                     if (isSearchBoxVisible) Color.White else Color.Transparent,
-                    shape = RoundedCornerShape(30.dp)
-                )
-                .border(
-                    1.dp,
-                    if (isSearchBoxVisible) Color.LightGray else Color.Transparent,
-                    RoundedCornerShape(30.dp)
                 ),
-            contentAlignment = Alignment.Center
 
-        ) {
+            ) {
             Row(
                 modifier = Modifier
+                    .background(Color.White)
                     .fillMaxWidth(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
-                IconButton(
-                    onClick = { isSearchBoxVisible = true },
+                Icon(
+                    modifier = Modifier,
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "搜索",
+                    tint = Color.Black
+                )
+                BasicTextField(
+                    value = searchText,
+                    onValueChange = { newText ->
+                        searchText = newText
+                        onTextChanged(newText)
+                    },
                     modifier = Modifier
-                        .size(24.dp)
-                        .padding(start = 6.dp)
-                        .fillMaxWidth(0.2f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "搜索",
-                        tint = Color.Black
-                    )
-                }
+                        .align(Alignment.CenterVertically)
+                        .padding(start = 5.dp)
+                        .fillMaxWidth(0.8f),
+                    textStyle = TextStyle(fontSize = 14.sp),
 
-                AnimatedVisibility(
-                    modifier = Modifier.fillMaxWidth(0.95f),
-                    visible = isSearchBoxVisible,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.CenterVertically)
-                            .padding(start = 2.dp)
-                            //.border(1.dp,Color.Blue)
-                            .fillMaxWidth(1f),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        BasicTextField(
-                            value = searchText,
-                            onValueChange = { newText ->
-                                searchText = newText
-                                onTextChanged(newText)
-                            },
+
+                    if (searchText.isEmpty()) {
+                        Text(
                             modifier = Modifier
-                                .align(Alignment.CenterVertically)
-                                .padding(start = 5.dp)
-                                .fillMaxWidth(0.8f),
-                            textStyle = TextStyle(fontSize = 14.sp),
-
-                            ) {
-
-                            if (searchText.isEmpty()) {
-                                Text(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.9f),
-                                    text = "搜搜看",
-                                    color = Color(0xFF615959),
-                                    fontSize = 12.sp
-                                )
-                            }
-
-                            it()
-                        }
-                        // 关闭搜索
-                        IconButton(
-                            onClick = { isSearchBoxVisible = false },
-                            modifier = Modifier
-                                .height(20.dp)
-                                .align(Alignment.CenterVertically)
-                                .fillMaxWidth(1f),
+                                .fillMaxWidth(0.9f),
+                            text = "搜索",
+                            color = Color(0xFF615959),
+                            fontSize = 12.sp
                         )
-                        {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "清除搜索内容",
-                                tint = Color.Black,
-                            )
-                        }
                     }
+
+                    it()
+                }
+                // 关闭搜索
+                IconButton(
+                    onClick = { isSearchBoxVisible = false },
+                    modifier = Modifier
+                        .height(20.dp)
+                        .align(Alignment.CenterVertically)
+                        .fillMaxWidth(1f),
+                )
+                {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "清除搜索内容",
+                        tint = Color.Black,
+                    )
                 }
 
             }
@@ -764,7 +794,7 @@ fun CustomCalendar(
             ) {
 
                 DisplayCurrentWeekDates(
-                    onDateSelected = { selected  ->
+                    onDateSelected = { selected ->
                         onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
                         todoViewModel.fetchTodoBoxesBySelectedDate(selected)
                         // 在这里添加更多日期被点击后的处理逻辑，例如打印日期
@@ -830,7 +860,10 @@ fun DisplayCurrentWeekDates(
                 isSelected = selectedDate?.isEqual(currentDate) == true,
                 isToday = currentDate == today,
                 onClick = {
-                    Log.d("DisplayCurrentWeekDates", "Clicked date: $currentDate, setting as selected.")
+                    Log.d(
+                        "DisplayCurrentWeekDates",
+                        "Clicked date: $currentDate, setting as selected."
+                    )
                     onDateSelected(currentDate)
                 },
                 backgroundColor = Color(0x12345678),
@@ -861,10 +894,18 @@ fun CustomBottomBackgroundTextButton(
 ) {
     val borderModifier = when {
         isToday -> Modifier.border(1.dp, todayBorderColor, RoundedCornerShape(4.dp))
-        isSelected && !isToday -> Modifier.border(1.dp, selectedBorderColor, RoundedCornerShape(4.dp))
+        isSelected && !isToday -> Modifier.border(
+            1.dp,
+            selectedBorderColor,
+            RoundedCornerShape(4.dp)
+        )
+
         else -> Modifier.clip(RoundedCornerShape(4.dp))
     }
-    Log.d("CustomBottomBackgroundTextButton", "currentDate: ${currentDate}, isSelected: $isSelected")
+    Log.d(
+        "CustomBottomBackgroundTextButton",
+        "currentDate: ${currentDate}, isSelected: $isSelected"
+    )
     Surface(
         modifier = Modifier
             .then(borderModifier)
