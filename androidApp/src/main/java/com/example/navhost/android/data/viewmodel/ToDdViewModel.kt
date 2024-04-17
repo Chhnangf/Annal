@@ -10,6 +10,7 @@ import androidx.work.workDataOf
 import com.example.navhost.android.data.ToDoDao
 import com.example.navhost.android.data.ToDoDatabase
 import com.example.navhost.android.data.model.Status
+import com.example.navhost.android.data.model.SubTask
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.repository.ToDoRepository
@@ -72,30 +73,45 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun insertOrUpdateData(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
+            val subTasks = toDoData.description?.let { processDescriptionIntoSubTasks(it) }
+            if (subTasks != null) {
+                toDoData.subTasks = subTasks
+            }
 
             val existingTodo = toDoData.id?.let { repository.getTodoById(it) }
             if (existingTodo == null) {
-                Log.d("ToDoViewModel", "Inserting todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value}")
+                Log.d(
+                    "ToDoViewModel",
+                    "Inserting todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value} ${toDoData.subTasks}"
+                )
                 repository.insertData(toDoData)
             } else {
-                Log.d("ToDoViewModel", "Updating  todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value}")
+                Log.d(
+                    "ToDoViewModel",
+                    "Updating  todo with ID: ${toDoData.id} ${toDoData.title} ${toDoData.description} ${toDoData.lastModifiedAt} ${toDoData.status} ${selectedDate.value} ${toDoData.subTasks}"
+                )
                 repository.updateData(toDoData)
             }
 
             // 添加以下代码，判断是否存在提醒时间并安排通知
             val delay = calculateReminderDelay(toDoData)
-            Log.d("ToDoViewModel", "insertOrUpdateData -> reminderTime: $selectedDate.value with delay of $delay ms for todo: ${toDoData.title}")
+            Log.d(
+                "ToDoViewModel",
+                "insertOrUpdateData -> reminderTime: $selectedDate.value with delay of $delay ms for todo: ${toDoData.title}"
+            )
 
             if (toDoData.reminderTime != null) {
                 if (delay > 0) {
                     val workRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
                         .setInitialDelay(delay, TimeUnit.MILLISECONDS)
 
-                        .setInputData(workDataOf(
-                            "TODO_ID" to toDoData.id,
-                            "TITLE" to toDoData.title,
-                            // 不再传递提醒时间字符串，因为通知触发时不再需要解析时间
-                        ))
+                        .setInputData(
+                            workDataOf(
+                                "TODO_ID" to toDoData.id,
+                                "TITLE" to toDoData.title,
+                                // 不再传递提醒时间字符串，因为通知触发时不再需要解析时间
+                            )
+                        )
                         .build()
 
                     WorkManager.getInstance(getApplication()).enqueue(workRequest)
@@ -104,18 +120,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch(Dispatchers.IO) {
                 fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
             }
-        }
-    }
-
-
-    /**
-     *  for checkbox
-     */
-    fun onTodoCheckedChange(todo: ToDoData, isChecked: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val updatedTodo = todo.copy(isChecked = isChecked)
-            repository.updateData(updatedTodo)
-            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
 
@@ -167,6 +171,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
      */
     // 搜索查询 StateFlow
     private val _searchQuery = MutableStateFlow("")
+
     // 用户输入内容的接口，将数据存储到_searchQuery中供后续读取
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -178,27 +183,33 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     // 2024-4-8-3：24
     // 搜索栏显示包含todo title的box
     @OptIn(ExperimentalCoroutinesApi::class)
-    val filteredBoxesWithTodos: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> = _searchQuery.flatMapLatest { query ->
-        when {
-            // 搜索栏为空时显示所有盒子及其内容
-            query.isEmpty() -> todoBoxesWithTodosByDate
-            // 搜索栏有内容时遍历titile是否匹配，返回其盒子及其内容
-            else -> todoBoxesWithTodosByDate.map { boxes ->
-                boxes.map { (box, todos) ->
-                    box to todos.filter { todo -> todo.status != Status.DELETED && todo.title.contains(query, ignoreCase = true) }
-                }.filter { (_, filteredTodos) -> filteredTodos.isNotEmpty() }
+    val filteredBoxesWithTodos: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> =
+        _searchQuery.flatMapLatest { query ->
+            when {
+                // 搜索栏为空时显示所有盒子及其内容
+                query.isEmpty() -> todoBoxesWithTodosByDate
+                // 搜索栏有内容时遍历titile是否匹配，返回其盒子及其内容
+                else -> todoBoxesWithTodosByDate.map { boxes ->
+                    boxes.map { (box, todos) ->
+                        box to todos.filter { todo ->
+                            todo.status != Status.DELETED && todo.title.contains(
+                                query,
+                                ignoreCase = true
+                            )
+                        }
+                    }.filter { (_, filteredTodos) -> filteredTodos.isNotEmpty() }
+                }
             }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     /**
      *  4-15新增对数据库日期字段操作的api
      *  订阅_todoBoxesWithTodosByDate 观察ToDoBox、ToDoData数据流
      *  暴露todoBoxesWithTodosByDate 给ui层和数据层，提供获取value的方法
      */
-    private val _todoBoxesWithTodosByDate = MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
+    private val _todoBoxesWithTodosByDate =
+        MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
     val todoBoxesWithTodosByDate: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> get() = _todoBoxesWithTodosByDate
-
 
 
     // getTodoBoxesWithTodosByModifiedDate获取ToDoBox、ToDoData表内容
@@ -212,22 +223,62 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     }
 
-    /**
-     *  1. ToDoScreen insertBox时调用此方法
-     *  2. ToDoScreen insertTodo时调用此方法
-     *  3. ToDoAddScreen updateTodo
-     *  4. ToDoAddScreen deleted 待实装
-     *  5.
-     */
     fun fetchTodoBoxesBySelectedDate(selected: LocalDate) = viewModelScope.launch(Dispatchers.IO) {
         val result = repository.getTodoBoxesWithTodosByModifiedDate(selected)
         _todoBoxesWithTodosByDate.emit(result)
         fetchTodoBoxesWithTodosByModifiedDate(selected)
     }
 
+    // todo 待修改逻辑有bug
+    fun processDescriptionIntoSubTasks(description: String): List<SubTask> {
+        return description.split("\n").filter { it.isNotBlank() }.mapIndexed { index, line ->
+            SubTask(index = index, description = line.trim(), isChecked = false)
+        }
+    }
+
+    // 4-20 for Tsk CheckBox State
+    // for Todos
+    fun updateTodoState(todo: ToDoData, isChecked: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            var updatedTodo = todo.copy(isChecked = isChecked)
+            // 当母任务被勾选时，同步更新所有子任务的状态为已勾选
+            updatedTodo = if (isChecked) {
+                val allSubTasksChecked = updatedTodo.subTasks.map { it.copy(isChecked = true) }
+                updatedTodo.copy(subTasks = allSubTasksChecked, status = Status.COMPLETED)
+            } else {
+                val allSubTasksChecked = updatedTodo.subTasks.map { it.copy(isChecked = false) }
+                updatedTodo.copy(subTasks = allSubTasksChecked, status = Status.PENDING)
+            }
+            repository.updateData(updatedTodo)
+            fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+        }
+    }
+    // for SubTask
+    fun updateSubTaskState(todo: ToDoData, subTaskIndex: Int, isChecked: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedSubTask = todo.subTasks.getOrNull(subTaskIndex)?.copy(isChecked = isChecked)
+            if (updatedSubTask != null) {
+                val updatedTodoSubTasks = todo.subTasks.map {
+                    if (it.index == subTaskIndex) updatedSubTask else it
+                }
+                val areAllSubTasksChecked = updatedTodoSubTasks.all { it.isChecked }
+
+                val updatedTodo = todo.copy(
+                    subTasks = updatedTodoSubTasks,
+                    status = if (areAllSubTasksChecked) Status.COMPLETED else Status.IN_PROGRESS,
+                    isChecked = areAllSubTasksChecked
+                )
+
+                // 先更新数据库
+                repository.updateData(updatedTodo)
+                fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
+            }
+
+        }
+    }
+
+
 }
-
-
 
 
 fun calculateReminderDelay(toDoData: ToDoData): Long {

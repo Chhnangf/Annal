@@ -1,5 +1,6 @@
 package com.example.navhost.android.data.model
 
+import android.media.Image
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -24,18 +25,21 @@ enum class Priority(val displayText: String) {
  */
 enum class Status(val displayText: String) {
     PENDING("待完成"),
+    IN_PROGRESS("进行中"),
     COMPLETED("已完成"),
     DELETED("已删除");
     override fun toString(): String {
         return displayText
     }
-
-    // 使用：
-//    val status = TodoStatus.COMPLETED
-//    println(status.toString())  // 输出：“已完成”
 }
 
 
+/**
+ *  活跃：无/低/中/高，共4种
+ */
+enum class Active(val displayIcon: Image) {
+
+}
 
 /**
  *  待办数据模型
@@ -69,6 +73,9 @@ data class ToDoData(
     var createdAt: LocalDateTime = LocalDateTime.now(),
     var selectDateAt: LocalDateTime = LocalDateTime.now(),
     var lastModifiedAt: LocalDateTime = LocalDateTime.now(),
+    var subTasks: List<SubTask> = emptyList(),
     @ColumnInfo(index = true)
     val todo_box_id: Long? = null,
 )
+
+data class SubTask(val index: Int, val description: String, var isChecked: Boolean)

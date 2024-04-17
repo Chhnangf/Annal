@@ -8,7 +8,6 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.example.navhost.android.data.model.ToDoBox
-import com.example.navhost.android.data.model.ToDoBoxWithTodoDatas
 import com.example.navhost.android.data.model.ToDoData
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
@@ -68,9 +67,6 @@ interface ToDoDao {
     @Query("SELECT * FROM todo_box")
     fun getTodoBoxesWithTodosFlow(): Flow<List<ToDoBox>>
 
-    @Transaction
-    @Query("SELECT * FROM todo_box")
-    fun getToDoBoxesWithTodoDatas(): List<ToDoBoxWithTodoDatas>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertToDoBox(toDoBox: ToDoBox): Long
@@ -90,3 +86,4 @@ interface ToDoDao {
     suspend fun getTodosByBoxIdAndModifiedDate(boxId: Long, startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
 
 }
+
