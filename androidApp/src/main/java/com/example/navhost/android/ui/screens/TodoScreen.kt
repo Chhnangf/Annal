@@ -78,6 +78,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.navhost.android.data.model.Activity
 import com.example.navhost.android.data.model.Priority
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
@@ -187,11 +188,12 @@ fun TodosScreen(
                     .padding(top = 240.dp, bottom = 44.dp)
             ) {
                 // *** 遍历数据表显示内容 *** //
-                boxesWithTodos.forEach { (todoBox, todoDatas) ->
+                boxesWithTodos.forEach { (todoBox, todoDatas, doneCount) ->
                     TodoBox(
                         todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
                         title = todoBox.title,
                         todos = todoDatas,
+                        todoDone = doneCount,
                         onEdit = { todoId, _ ->
                             // 实现导航到编辑页面的逻辑
                             navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
@@ -210,7 +212,7 @@ fun TodosScreen(
                             todoViewModel.deleteTodoBoxById(todoBoxId)
                         },
                         onSubTaskCheckedChange = { todoDatas, subTaskIndex, isChecked ->
-                            todoViewModel.updateSubTaskState(todoDatas, subTaskIndex, isChecked)
+                            todoViewModel.refreshSubState(todoDatas, subTaskIndex, isChecked)
                         },
                     )
                 }
@@ -283,11 +285,13 @@ fun TodosScreen(
 
 
 // 收纳盒
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun TodoBox(
     todoBoxId: Long,
     title: String,
     todos: List<ToDoData>,
+    todoDone : Int,
     onEdit: (todoId: Long?, isNew: Boolean) -> Unit,
     onAddButtonClick: () -> Unit,
     onTodoCheckedChange: (ToDoData, Boolean) -> Unit,
@@ -295,7 +299,6 @@ fun TodoBox(
     onSubTaskCheckedChange: (ToDoData, Int, Boolean) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(true) }
-
     // 收纳盒卡片
     Card(
         modifier = Modifier
@@ -336,6 +339,8 @@ fun TodoBox(
                     )
                 }
 
+
+                Text(text = " $todoDone / ${todos.size}")
                 // 折叠/展开盒子
                 IconButton(onClick = { isExpanded = !isExpanded }) {
                     Icon(
@@ -478,7 +483,6 @@ fun ToDosItem(
                     }
                 }
             }
-            Log.d("ToDosItem", "todoId: ${todo.id}, description: ${todo.description}")
             if (todo.description != "") {
                 // 遍历并展示子任务
                 todo.subTasks.forEachIndexed { index, subTask ->
@@ -785,6 +789,7 @@ fun CustomCalendar(
             ) {
 
                 DisplayCurrentWeekDates(
+                    todoViewModel = todoViewModel,
                     onDateSelected = { selected ->
                         onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
                         todoViewModel.fetchTodoBoxesBySelectedDate(selected)
@@ -815,10 +820,19 @@ val weekdayChineseMap = mapOf(
 // 在使用此 Composable 时，传入一个处理日期选择的回调函数
 @Composable
 fun DisplayCurrentWeekDates(
+    todoViewModel: ToDoViewModel,
     onDateSelected: (LocalDate) -> Unit,
     selectedDate: LocalDate?,
     today: LocalDate
 ) {
+
+    // 订阅 todoViewModel 的 todoDataWithDate
+    val todoDataWithDate by todoViewModel.todoDataWithDate.collectAsState()
+
+    LaunchedEffect(Unit) {
+        todoViewModel.refreshWeeklyActivity()
+    }
+
     val firstDayOfWeek =
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
@@ -845,8 +859,17 @@ fun DisplayCurrentWeekDates(
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0..6) {
-
             val currentDate = firstDayOfWeek.plusDays(i.toLong())
+            // 从 todoDataWithDate 中找到对应日期的活动度信息
+            val currentWithDate = todoDataWithDate.find { it.selectedDate == currentDate }
+            val activity = currentWithDate?.activity ?: Activity.NONE
+            val backgroundColor = when (activity) {
+                Activity.NONE -> Color.Transparent
+                Activity.LOW -> Color.Green.copy(alpha = 0.15f)
+                Activity.MEDIUM -> Color.Green.copy(alpha = 0.4f)
+                Activity.HIGH -> Color.Green.copy(alpha = 0.65f)
+            }
+
             CustomBottomBackgroundTextButton(
                 currentDate,
                 isSelected = selectedDate?.isEqual(currentDate) == true,
@@ -858,7 +881,7 @@ fun DisplayCurrentWeekDates(
                     )
                     onDateSelected(currentDate)
                 },
-                backgroundColor = Color(0x12345678),
+                backgroundColor = backgroundColor, // Color(0x12345678)
                 selectedBorderColor = Color.Blue,
             ) {
                 Text(

@@ -80,10 +80,18 @@ interface ToDoDao {
 
     // 4-15 对日期字段的数据库操作支持
     @Query("SELECT * FROM todo_box WHERE selectDateAt >= :startDate AND selectDateAt < :endDate")
-    suspend fun getBoxesByModifiedDate(startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoBox>
+    suspend fun getBoxesByDate(startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoBox>
 
     @Query("SELECT * FROM todo_data WHERE todo_box_id = :boxId AND selectDateAt >= :startDate AND selectDateAt < :endDate AND status != 'DELETED'")
-    suspend fun getTodosByBoxIdAndModifiedDate(boxId: Long, startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
+    suspend fun getTodosByBoxIDate(boxId: Long, startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
+
+    // 4-22 for todosDone
+    // ToDoDao 中增加获取已完成任务数量的方法
+    @Query("SELECT COUNT(*) FROM todo_data WHERE isChecked = 1")
+    fun getTodoCount(): Int
+
+    @Query("SELECT * FROM todo_data WHERE selectDateAt >= :startDate AND selectDateAt < :endDate")
+    suspend fun getTodosByDate(startDate: LocalDateTime, endDate: LocalDateTime): List<ToDoData>
 
 }
 
