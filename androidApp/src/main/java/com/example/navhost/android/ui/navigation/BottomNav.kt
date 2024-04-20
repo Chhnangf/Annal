@@ -44,11 +44,10 @@ import com.example.navhost.android.data.viewmodel.ToDoViewModel
 fun BottomNav(
     navController: NavHostController,
     sessionViewModel: SessionViewModel,
-    todoViewModel: ToDoViewModel
+    todoViewModel: ToDoViewModel,
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
     Scaffold(
         bottomBar = if (shouldShowBottomBar(currentRoute)) {
             { BottomBar(navController) }

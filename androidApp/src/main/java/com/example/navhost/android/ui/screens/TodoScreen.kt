@@ -187,11 +187,12 @@ fun TodosScreen(
                     .padding(top = 240.dp, bottom = 44.dp)
             ) {
                 // *** 遍历数据表显示内容 *** //
-                boxesWithTodos.forEach { (todoBox, todoDatas) ->
+                boxesWithTodos.forEach { (todoBox, todoDatas, doneCount) ->
                     TodoBox(
                         todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
                         title = todoBox.title,
                         todos = todoDatas,
+                        todoDone = doneCount,
                         onEdit = { todoId, _ ->
                             // 实现导航到编辑页面的逻辑
                             navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
@@ -283,11 +284,13 @@ fun TodosScreen(
 
 
 // 收纳盒
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun TodoBox(
     todoBoxId: Long,
     title: String,
     todos: List<ToDoData>,
+    todoDone : Int,
     onEdit: (todoId: Long?, isNew: Boolean) -> Unit,
     onAddButtonClick: () -> Unit,
     onTodoCheckedChange: (ToDoData, Boolean) -> Unit,
@@ -295,7 +298,6 @@ fun TodoBox(
     onSubTaskCheckedChange: (ToDoData, Int, Boolean) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(true) }
-
     // 收纳盒卡片
     Card(
         modifier = Modifier
@@ -336,6 +338,8 @@ fun TodoBox(
                     )
                 }
 
+
+                Text(text = " $todoDone / ${todos.size}")
                 // 折叠/展开盒子
                 IconButton(onClick = { isExpanded = !isExpanded }) {
                     Icon(
