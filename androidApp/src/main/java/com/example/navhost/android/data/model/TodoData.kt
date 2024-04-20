@@ -1,45 +1,16 @@
 package com.example.navhost.android.data.model
 
-import android.media.Image
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
-/**
- *  优先级：高、中、低
- */
-enum class Priority(val displayText: String) {
-    HIGH("高"),
-    MEDIUM("中"),
-    LOW("低");
-    override fun toString(): String {
-        return displayText
-    }
-}
-
-/**
- *  状态：待完成/已完成/删除
- */
-enum class Status(val displayText: String) {
-    PENDING("待完成"),
-    IN_PROGRESS("进行中"),
-    COMPLETED("已完成"),
-    DELETED("已删除");
-    override fun toString(): String {
-        return displayText
-    }
-}
 
 
-/**
- *  活跃：无/低/中/高，共4种
- */
-enum class Active(val displayIcon: Image) {
 
-}
 
 /**
  *  待办数据模型
@@ -76,6 +47,51 @@ data class ToDoData(
     var subTasks: List<SubTask> = emptyList(),
     @ColumnInfo(index = true)
     val todo_box_id: Long? = null,
-)
+) {
+    override fun toString(): String {
+        val subTasksStr = if (subTasks.isNotEmpty()) {
+            "  SubTasks([\n" +
+                    subTasks.joinToString(separator = ",\n") {
+                        "      Index: ${it.index}, Description: '${it.description}', Checked: ${it.isChecked}"
+                    } +
+                    "  ])"
+        } else {
+            "  SubTasks([])"
+        }
+        return "\nToDoData[\n" +
+                "  ID: $id,\n" +
+                "  Title: '$title',\n" +
+                "  Priority: $priority,\n" +
+                "  Description: '${description ?: "N/A"}',\n" +
+                "  Is Checked: $isChecked,\n" +
+                "  Reminder Time: ${reminderTime?.toString() ?: "None"},\n" +
+                "  Status: $status,\n" +
+                "  Created At: $createdAt,\n" +
+                "  Selected Date: $selectDateAt,\n" +
+                "  Last Modified At: $lastModifiedAt,\n" +
+                "$subTasksStr\n" +
+                "]"
+    }
+}
 
-data class SubTask(val index: Int, val description: String, var isChecked: Boolean)
+data class SubTask(val index: Int, val description: String, var isChecked: Boolean) {
+    override fun toString(): String {
+        return "SubTask[Index: $index, Description: '$description', Checked: $isChecked]"
+    }
+}
+
+class ToDoDataWithDate (
+    val selectedDate: LocalDate,
+    val totalTodos: Int,
+    val doneTodos: Int,
+    val activity: Activity
+) {
+    override fun toString(): String {
+        return "ToDoDataWithDate[\n" +
+                "  Date: $selectedDate,\n" +
+                "  Total Todos: $totalTodos,\n" +
+                "  Done Todos: $doneTodos,\n" +
+                "  Activity Level: $activity\n" +
+                "]"
+    }
+}

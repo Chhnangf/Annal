@@ -6,12 +6,14 @@ package com.example.navhost.android.ui.screens
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.Surface
 import androidx.compose.material.icons.Icons
@@ -57,11 +60,11 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,17 +74,23 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.navhost.android.data.model.Activity
 import com.example.navhost.android.data.model.Priority
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
 import com.example.navhost.android.data.viewmodel.ToDoViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -105,6 +114,7 @@ fun SelectedDateManager(
     return selectedDateState
 }
 
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -121,8 +131,9 @@ fun TodosScreen(
     val boxesWithTodos by todoViewModel.todoBoxesWithTodosByDate.collectAsState()
     // 引入SelectedDateManager，并传入相应的日期选择回调
     val selectedDateState = SelectedDateManager(todoViewModel::fetchTodoBoxesBySelectedDate)
-    val selectedDateString = selectedDateState.value.toString()
 
+    val selectDate by todoViewModel.selectedDate.collectAsState()
+    val selectedDateString = selectDate.toString()
     LaunchedEffect(key1 = todoViewModel) {
         todoViewModel.searchQuery.collectLatest { query ->
             searchQuery = query
@@ -147,7 +158,7 @@ fun TodosScreen(
                 // 主题（诗文 + 按钮）
                 CustomTitle()
 
-                CompositionLocalProvider(LocalSelectedDate provides selectedDateState) {
+
                     selectedDateState.value.let { customDate ->
                         CustomCalendar(
                             todoViewModel = todoViewModel,
@@ -159,10 +170,11 @@ fun TodosScreen(
                                 )
                                 todoViewModel.fetchTodoBoxesBySelectedDate(selectedDate)
                             },
-                            selectedDate = customDate,
+                            selectedDate = selectDate,
                         )
+                        Log.d("ToDoScreen","CompositionLocalProvider: onDateSelected=${selectedDateState.value} refreshDate=$selectDate")
                     }
-                }
+
 
                 Box(
                     modifier = Modifier
@@ -187,11 +199,12 @@ fun TodosScreen(
                     .padding(top = 240.dp, bottom = 44.dp)
             ) {
                 // *** 遍历数据表显示内容 *** //
-                boxesWithTodos.forEach { (todoBox, todoDatas) ->
+                boxesWithTodos.forEach { (todoBox, todoDatas, doneCount) ->
                     TodoBox(
                         todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
                         title = todoBox.title,
                         todos = todoDatas,
+                        todoDone = doneCount,
                         onEdit = { todoId, _ ->
                             // 实现导航到编辑页面的逻辑
                             navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
@@ -210,7 +223,7 @@ fun TodosScreen(
                             todoViewModel.deleteTodoBoxById(todoBoxId)
                         },
                         onSubTaskCheckedChange = { todoDatas, subTaskIndex, isChecked ->
-                            todoViewModel.updateSubTaskState(todoDatas, subTaskIndex, isChecked)
+                            todoViewModel.refreshSubState(todoDatas, subTaskIndex, isChecked)
                         },
                     )
                 }
@@ -283,11 +296,13 @@ fun TodosScreen(
 
 
 // 收纳盒
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun TodoBox(
     todoBoxId: Long,
     title: String,
     todos: List<ToDoData>,
+    todoDone: Int,
     onEdit: (todoId: Long?, isNew: Boolean) -> Unit,
     onAddButtonClick: () -> Unit,
     onTodoCheckedChange: (ToDoData, Boolean) -> Unit,
@@ -295,7 +310,6 @@ fun TodoBox(
     onSubTaskCheckedChange: (ToDoData, Int, Boolean) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(true) }
-
     // 收纳盒卡片
     Card(
         modifier = Modifier
@@ -336,6 +350,8 @@ fun TodoBox(
                     )
                 }
 
+
+                Text(text = " $todoDone / ${todos.size}")
                 // 折叠/展开盒子
                 IconButton(onClick = { isExpanded = !isExpanded }) {
                     Icon(
@@ -478,7 +494,6 @@ fun ToDosItem(
                     }
                 }
             }
-            Log.d("ToDosItem", "todoId: ${todo.id}, description: ${todo.description}")
             if (todo.description != "") {
                 // 遍历并展示子任务
                 todo.subTasks.forEachIndexed { index, subTask ->
@@ -487,7 +502,7 @@ fun ToDosItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             //.border(1.dp, Color.Red)
-                            .padding(vertical = 2.dp,)
+                            .padding(vertical = 2.dp)
                     ) {
                         // 添加针对每个子任务的复选框
                         CustomCheckbox(
@@ -508,7 +523,6 @@ fun ToDosItem(
 //                    style = MaterialTheme.typography.bodySmall,
 //                    // 其他所需的参数...
 //                )
-
 
 
                     }
@@ -539,6 +553,7 @@ fun ToDosItem(
         }
     }
 }
+
 // 自定义复选框样式和数据存储
 @Composable
 fun CustomCheckbox(
@@ -785,16 +800,17 @@ fun CustomCalendar(
             ) {
 
                 DisplayCurrentWeekDates(
+                    todoViewModel = todoViewModel,
                     onDateSelected = { selected ->
                         onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
                         todoViewModel.fetchTodoBoxesBySelectedDate(selected)
                         // 在这里添加更多日期被点击后的处理逻辑，例如打印日期
-                        println("Selected date: $selected")
+                        Log.d("ToDoScreen","CustomCalendar: selected = $selected")
                     },
                     selectedDate = selectedDate,
                     today = LocalDate.now()
                 )
-
+                Log.d("ToDoScreen","CustomCalendar: selectedDate=$selectedDate today=${LocalDate.now()}")
             }
 
         }
@@ -815,10 +831,18 @@ val weekdayChineseMap = mapOf(
 // 在使用此 Composable 时，传入一个处理日期选择的回调函数
 @Composable
 fun DisplayCurrentWeekDates(
+    todoViewModel: ToDoViewModel,
     onDateSelected: (LocalDate) -> Unit,
     selectedDate: LocalDate?,
     today: LocalDate
 ) {
+
+    // 订阅 todoViewModel 的 todoDataWithDate
+    val todoDataWithDate by todoViewModel.todoDataWithDate.collectAsState()
+    LaunchedEffect(Unit) {
+        todoViewModel.refreshWeeklyActivity()
+    }
+
     val firstDayOfWeek =
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
@@ -845,27 +869,44 @@ fun DisplayCurrentWeekDates(
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0..6) {
+            val weekDate = firstDayOfWeek.plusDays(i.toLong())
 
-            val currentDate = firstDayOfWeek.plusDays(i.toLong())
+            // 从 todoDataWithDate 中找到对应日期的活动度信息
+            val weekDateWithDate = todoDataWithDate.find { it.selectedDate == weekDate }
+
+            val selectDateWithDate = todoDataWithDate.find { it.selectedDate == selectedDate }
+
+            val activity = weekDateWithDate?.activity ?: Activity.NONE
+            val todoCount = weekDateWithDate?.totalTodos ?: 0
+            val todoDone = weekDateWithDate?.doneTodos ?: 0
+            val selectDate = selectDateWithDate?.selectedDate
+
+            //Log.d("ToDoScreen","DisplayCurrentWeekDates:\nactivity=$activity todoCount=$todoCount todoDone=$todoDone")
+            val backgroundColor = when (activity) {
+                Activity.NONE -> Color.Transparent
+                Activity.LOW -> Color.Green.copy(alpha = 0.15f)
+                Activity.MEDIUM -> Color.Green.copy(alpha = 0.4f)
+                Activity.HIGH -> Color.Green.copy(alpha = 0.65f)
+            }
+
             CustomBottomBackgroundTextButton(
-                currentDate,
-                isSelected = selectedDate?.isEqual(currentDate) == true,
-                isToday = currentDate == today,
+                weekDate,
+                isSelectedDate = selectDate == weekDate, //selectedDate?.isEqual(weekDate) == true,
+                isToday = weekDate == today,
                 onClick = {
                     Log.d(
                         "DisplayCurrentWeekDates",
-                        "Clicked date: $currentDate, setting as selected."
+                        "Clicked date: $weekDate, setting as selected."
                     )
-                    onDateSelected(currentDate)
+                    onDateSelected(weekDate)
                 },
-                backgroundColor = Color(0x12345678),
+                doneCount = todoDone,
+                totalCount = todoCount,
+                backgroundColor = backgroundColor, // Color(0x12345678)
                 selectedBorderColor = Color.Blue,
-            ) {
-                Text(
-                    text = currentDate.dayOfMonth.toString(),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
+
+                ) {
+
             }
         }
     }
@@ -875,43 +916,119 @@ fun DisplayCurrentWeekDates(
 // 自定义日期选项样式
 @Composable
 fun CustomBottomBackgroundTextButton(
-    currentDate: LocalDate,
-    isSelected: Boolean = false, // 表示当前日期是否被选中
+    recursionDate: LocalDate,
+    isSelectedDate: Boolean = false, // 表示当前日期是否被选中
     isToday: Boolean = false, // 判断是否为今天
     onClick: (LocalDate) -> Unit, // 修改这里，使onClick接收LocalDate作为参数
+    doneCount: Int,
+    totalCount: Int,
     selectedBorderColor: Color = Color.Blue,
     todayBorderColor: Color = Color.Red,
     backgroundColor: Color = Color(0x12345678),
     content: @Composable () -> Unit
 ) {
-    val borderModifier = when {
-        isToday -> Modifier.border(1.dp, todayBorderColor, RoundedCornerShape(4.dp))
-        isSelected && !isToday -> Modifier.border(
-            1.dp,
-            selectedBorderColor,
-            RoundedCornerShape(4.dp)
-        )
-
-        else -> Modifier.clip(RoundedCornerShape(4.dp))
+    var currentProgress by remember { mutableStateOf(0f) } // 初始化进度为0
+    val targetProgress by remember(doneCount, totalCount) {
+        derivedStateOf {
+            doneCount.toFloat() / totalCount.toFloat().coerceAtLeast(1f)
+        }
     }
-    Surface(
+    LaunchedEffect(key1 = targetProgress) {
+        delay(500L) // 延迟500毫秒
+        currentProgress = targetProgress // 直接赋值，Compose会处理动画
+    }
+    val animatedProgress by animateFloatAsState(
+        targetValue = currentProgress,
+        animationSpec = tween(durationMillis = 1000) // 动画持续时间1秒
+    )
+
+    Box(
         modifier = Modifier
-            .then(borderModifier)
-            .then(Modifier.clickable(onClick = { onClick(currentDate) })) // 将当前日期传入onClick回调
-            .clip(RoundedCornerShape(4.dp)), // 可选，用于添加圆角
-        color = backgroundColor,
-        shape = RoundedCornerShape(4.dp)
+            .clip(RoundedCornerShape(30.dp))
+            .background(backgroundColor)
+            .then(Modifier.clickable(onClick = { onClick(recursionDate) })),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 8.dp) // 可根据需求调整内边距
-        ) {
-            content()
+        // 浅灰色Todo指示进度条
+        if (totalCount > 0) {
+            CircularProgressIndicator(
+                progress = 1f, // 使用todo完成比例
+                strokeWidth = 2.dp,
+                color = Color.Gray.copy(alpha = 0.3f), // 浅灰色，透明度调整以保持视觉轻盈
+                modifier = Modifier
+                    .size(32.dp)
+                    .align(Alignment.Center)
+            )
+        }
+        CircularProgressIndicator(
+            progress = animatedProgress,
+            strokeWidth = 2.dp,
+            color = Color.Blue,
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.Center)
+        )
+        Text(
+            text = recursionDate.dayOfMonth.toString(),
+            color = Color.Black,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.Center)
+                // 调整透明度使得文本在进度条颜色下可见（可选）
+                .alpha(0.8f)
+        )
+        if (isToday) {
+            DateRoundedRect(
+                color = Color.Red,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 4.dp)
+            )
+        }
+        if (!isToday && isSelectedDate) {
+            DateRoundedRect(
+                color = Color.Blue,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 4.dp)
+            )
         }
     }
 }
 
+@Composable
+private fun DateRoundedRect(
+    color: Color,
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 4.dp, // 圆角半径
+    size: Dp = 9.dp, // 矩形的总尺寸，假设为正方形处理
+    lineWidth: Dp = 2.dp // 线宽，实际上作为矩形的“高”
+) {
+    Canvas(modifier = modifier.then(Modifier.size(size, lineWidth))) {
+        val rectCornerSize = CornerRadius(cornerRadius.toPx())
+        drawRoundRect(
+            color = color,
+            size = Size(size.toPx(), lineWidth.toPx()),
+            cornerRadius = rectCornerSize,
+            style = Fill
+        )
+    }
+}
+
+//@Composable
+//private fun DateLine(
+//    color: Color,
+//    modifier: Modifier = Modifier,
+//    lineWidth: Dp = 2.dp,
+//    lineLength: Dp = 8.dp
+//) {
+//    Canvas(modifier = modifier.then(Modifier.size(lineLength, lineWidth)) ) {
+//        val start = Offset(x = 0f, y = size.height / 2)
+//        val end = Offset(x = size.width.toFloat(), y = size.height / 2)
+//        drawLine(color = color, start = start, end = end, strokeWidth = lineWidth.toPx())
+//    }
+//}
 // 自定义标题栏 + 切换按钮样式
 @Composable
 fun CustomTitle() {
@@ -928,10 +1045,11 @@ fun CustomTitle() {
             modifier = Modifier
                 .fillMaxWidth(1f)
                 .padding(top = 4.dp, end = 8.dp)
-                .border(1.dp, Color.LightGray),
+            //.border(1.dp, Color.LightGray)
+            ,
             horizontalArrangement = Arrangement.End
         ) {
-            SwitchWithIconExample()
+            //SwitchWithIconExample()
         }
     }
 }
