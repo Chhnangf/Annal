@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.Surface
 import androidx.compose.material.icons.Icons
@@ -78,6 +79,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.navhost.android.data.model.Activity
 import com.example.navhost.android.data.model.Priority
 import com.example.navhost.android.data.model.ToDoBox
 import com.example.navhost.android.data.model.ToDoData
@@ -187,11 +189,12 @@ fun TodosScreen(
                     .padding(top = 240.dp, bottom = 44.dp)
             ) {
                 // *** 遍历数据表显示内容 *** //
-                boxesWithTodos.forEach { (todoBox, todoDatas) ->
+                boxesWithTodos.forEach { (todoBox, todoDatas, doneCount) ->
                     TodoBox(
                         todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
                         title = todoBox.title,
                         todos = todoDatas,
+                        todoDone = doneCount,
                         onEdit = { todoId, _ ->
                             // 实现导航到编辑页面的逻辑
                             navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
@@ -210,7 +213,7 @@ fun TodosScreen(
                             todoViewModel.deleteTodoBoxById(todoBoxId)
                         },
                         onSubTaskCheckedChange = { todoDatas, subTaskIndex, isChecked ->
-                            todoViewModel.updateSubTaskState(todoDatas, subTaskIndex, isChecked)
+                            todoViewModel.refreshSubState(todoDatas, subTaskIndex, isChecked)
                         },
                     )
                 }
@@ -283,11 +286,13 @@ fun TodosScreen(
 
 
 // 收纳盒
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun TodoBox(
     todoBoxId: Long,
     title: String,
     todos: List<ToDoData>,
+    todoDone : Int,
     onEdit: (todoId: Long?, isNew: Boolean) -> Unit,
     onAddButtonClick: () -> Unit,
     onTodoCheckedChange: (ToDoData, Boolean) -> Unit,
@@ -295,7 +300,6 @@ fun TodoBox(
     onSubTaskCheckedChange: (ToDoData, Int, Boolean) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(true) }
-
     // 收纳盒卡片
     Card(
         modifier = Modifier
@@ -336,6 +340,8 @@ fun TodoBox(
                     )
                 }
 
+
+                Text(text = " $todoDone / ${todos.size}")
                 // 折叠/展开盒子
                 IconButton(onClick = { isExpanded = !isExpanded }) {
                     Icon(
@@ -478,7 +484,6 @@ fun ToDosItem(
                     }
                 }
             }
-            Log.d("ToDosItem", "todoId: ${todo.id}, description: ${todo.description}")
             if (todo.description != "") {
                 // 遍历并展示子任务
                 todo.subTasks.forEachIndexed { index, subTask ->
@@ -785,6 +790,7 @@ fun CustomCalendar(
             ) {
 
                 DisplayCurrentWeekDates(
+                    todoViewModel = todoViewModel,
                     onDateSelected = { selected ->
                         onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
                         todoViewModel.fetchTodoBoxesBySelectedDate(selected)
@@ -815,10 +821,18 @@ val weekdayChineseMap = mapOf(
 // 在使用此 Composable 时，传入一个处理日期选择的回调函数
 @Composable
 fun DisplayCurrentWeekDates(
+    todoViewModel: ToDoViewModel,
     onDateSelected: (LocalDate) -> Unit,
     selectedDate: LocalDate?,
     today: LocalDate
 ) {
+
+    // 订阅 todoViewModel 的 todoDataWithDate
+    val todoDataWithDate by todoViewModel.todoDataWithDate.collectAsState()
+    LaunchedEffect(Unit) {
+        todoViewModel.refreshWeeklyActivity()
+    }
+
     val firstDayOfWeek =
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
@@ -845,8 +859,20 @@ fun DisplayCurrentWeekDates(
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0..6) {
-
             val currentDate = firstDayOfWeek.plusDays(i.toLong())
+            // 从 todoDataWithDate 中找到对应日期的活动度信息
+            val currentWithDate = todoDataWithDate.find { it.selectedDate == currentDate }
+            val activity = currentWithDate?.activity ?: Activity.NONE
+            val todoCount = currentWithDate?.totalTodos ?: 0
+            val todoDone = currentWithDate?.doneTodos ?: 0
+            Log.d("ToDoScreen","DisplayCurrentWeekDates:\nactivity=$activity todoCount=$todoCount todoDone=$todoDone")
+            val backgroundColor = when (activity) {
+                Activity.NONE -> Color.Transparent
+                Activity.LOW -> Color.Green.copy(alpha = 0.15f)
+                Activity.MEDIUM -> Color.Green.copy(alpha = 0.4f)
+                Activity.HIGH -> Color.Green.copy(alpha = 0.65f)
+            }
+
             CustomBottomBackgroundTextButton(
                 currentDate,
                 isSelected = selectedDate?.isEqual(currentDate) == true,
@@ -858,14 +884,13 @@ fun DisplayCurrentWeekDates(
                     )
                     onDateSelected(currentDate)
                 },
-                backgroundColor = Color(0x12345678),
+                doneCount = todoDone,
+                totalCount = todoCount,
+                backgroundColor = backgroundColor, // Color(0x12345678)
                 selectedBorderColor = Color.Blue,
+
             ) {
-                Text(
-                    text = currentDate.dayOfMonth.toString(),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
+
             }
         }
     }
@@ -879,36 +904,53 @@ fun CustomBottomBackgroundTextButton(
     isSelected: Boolean = false, // 表示当前日期是否被选中
     isToday: Boolean = false, // 判断是否为今天
     onClick: (LocalDate) -> Unit, // 修改这里，使onClick接收LocalDate作为参数
+    doneCount: Int,
+    totalCount: Int,
     selectedBorderColor: Color = Color.Blue,
     todayBorderColor: Color = Color.Red,
     backgroundColor: Color = Color(0x12345678),
     content: @Composable () -> Unit
 ) {
-    val borderModifier = when {
-        isToday -> Modifier.border(1.dp, todayBorderColor, RoundedCornerShape(4.dp))
-        isSelected && !isToday -> Modifier.border(
-            1.dp,
-            selectedBorderColor,
-            RoundedCornerShape(4.dp)
-        )
 
-        else -> Modifier.clip(RoundedCornerShape(4.dp))
-    }
-    Surface(
+    // 记录进度百分比
+    val progress = doneCount.toFloat() / totalCount.toFloat().coerceAtLeast(1f)
+
+    Box(
         modifier = Modifier
-            .then(borderModifier)
-            .then(Modifier.clickable(onClick = { onClick(currentDate) })) // 将当前日期传入onClick回调
-            .clip(RoundedCornerShape(4.dp)), // 可选，用于添加圆角
-        color = backgroundColor,
-        shape = RoundedCornerShape(4.dp)
+            .clip(RoundedCornerShape(30.dp))
+            .background(backgroundColor)
+            .then(Modifier.clickable(onClick = { onClick(currentDate) })),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 8.dp) // 可根据需求调整内边距
-        ) {
-            content()
+        // 浅灰色Todo指示进度条
+        if (totalCount > 0 ) {
+            CircularProgressIndicator(
+                progress = 1f, // 使用todo完成比例
+                strokeWidth = 2.dp,
+                color = Color.Gray.copy(alpha = 0.3f), // 浅灰色，透明度调整以保持视觉轻盈
+                modifier = Modifier
+                    .size(32.dp)
+                    .align(Alignment.Center)
+            )
         }
+        CircularProgressIndicator(
+            progress = progress,
+            strokeWidth = 2.dp,
+            color = Color.Blue,
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.Center)
+        )
+        Text(
+            text = currentDate.dayOfMonth.toString(),
+            color = Color.Black,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.Center)
+                // 调整透明度使得文本在进度条颜色下可见（可选）
+                .alpha(0.8f)
+        )
     }
 }
 

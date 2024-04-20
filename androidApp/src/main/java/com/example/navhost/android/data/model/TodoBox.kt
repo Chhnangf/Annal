@@ -16,3 +16,8 @@ data class ToDoBox(
     val lastModifiedAt: LocalDateTime = LocalDateTime.now() // 新增字段：最后修改时间，默认为当前时间
 )
 
+data class ToDoBoxWithTodos(
+    val box: ToDoBox,
+    val todos: List<ToDoData>,
+    val doneCount: Int,
+)
