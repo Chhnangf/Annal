@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.Serializable
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -44,11 +46,16 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate: StateFlow<LocalDate> get() = _selectedDate
 
+    private val _totalDoneTodosCount = MutableStateFlow(0)
+    val totalDoneTodosCount: StateFlow<Int> = _totalDoneTodosCount
+
+
 
     init {
 
         val database = ToDoDatabase.getDatabase(application)
         toDoDao = database.toDoDao()
+
         // 创建并初始化ToDoRepository实例
         repository = ToDoRepository(toDoDao)
 
@@ -56,7 +63,18 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val doneCount = toDoDao.getTodoCount()
+            withContext(Dispatchers.Main) {
+                _totalDoneTodosCount.value = doneCount
+            }
+        }
+
+
     }
+
+
 
     // 添加获取单个待办事项的方法
     suspend fun getTodoById(id: Long): Flow<ToDoData> {
@@ -183,7 +201,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     // 2024-4-8-3：24
     // 搜索栏显示包含todo title的box
     @OptIn(ExperimentalCoroutinesApi::class)
-    val filteredBoxesWithTodos: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> =
+    val filteredBoxesWithTodos: StateFlow<List<Serializable>> =
         _searchQuery.flatMapLatest { query ->
             when {
                 // 搜索栏为空时显示所有盒子及其内容
@@ -208,8 +226,8 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
      *  暴露todoBoxesWithTodosByDate 给ui层和数据层，提供获取value的方法
      */
     private val _todoBoxesWithTodosByDate =
-        MutableStateFlow<List<Pair<ToDoBox, List<ToDoData>>>>(emptyList())
-    val todoBoxesWithTodosByDate: StateFlow<List<Pair<ToDoBox, List<ToDoData>>>> get() = _todoBoxesWithTodosByDate
+        MutableStateFlow<List<Triple<ToDoBox, List<ToDoData>, Int>>>(emptyList())
+    val todoBoxesWithTodosByDate: StateFlow<List<Triple<ToDoBox, List<ToDoData>, Int>>> get() = _todoBoxesWithTodosByDate
 
 
     // getTodoBoxesWithTodosByModifiedDate获取ToDoBox、ToDoData表内容
@@ -238,6 +256,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     // 4-20 for Tsk CheckBox State
     // for Todos
+
     fun updateTodoState(todo: ToDoData, isChecked: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             var updatedTodo = todo.copy(isChecked = isChecked)
@@ -249,7 +268,10 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
                 val allSubTasksChecked = updatedTodo.subTasks.map { it.copy(isChecked = false) }
                 updatedTodo.copy(subTasks = allSubTasksChecked, status = Status.PENDING)
             }
+
             repository.updateData(updatedTodo)
+
+
             fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
         }
     }
@@ -271,12 +293,15 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 先更新数据库
                 repository.updateData(updatedTodo)
+
+
                 fetchTodoBoxesWithTodosByModifiedDate(selectedDate.value)
             }
 
         }
     }
 
+    // 4-22 for todo计数
 
 }
 

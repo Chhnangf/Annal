@@ -48,7 +48,7 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
 
     // 4-15新增对数据库日期字段操作的api
     // 获取指定日期关联的待办盒子及其待办事项
-    suspend fun getTodoBoxesWithTodosByModifiedDate(selectedDate: LocalDate): List<Pair<ToDoBox, List<ToDoData>>> {
+    suspend fun getTodoBoxesWithTodosByModifiedDate(selectedDate: LocalDate): List<Triple<ToDoBox, List<ToDoData>, Int>> {
 
         val dateStart = selectedDate.atStartOfDay()
         val dateEnd = selectedDate.atTime(LocalTime.MAX)
@@ -59,7 +59,9 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
             val todos = toDoDao.getTodosByBoxIdAndModifiedDate(box.id!!, dateStart, dateEnd)
             //Log.d("ToDoRepository", "todos: $todos")
             val todoStates = todos.filter { it.status != Status.DELETED }
-            Pair(box, todoStates)
+            val doneCount = todoStates.count { it.isChecked }
+
+            Triple(box, todoStates, doneCount)
         }
     }
 

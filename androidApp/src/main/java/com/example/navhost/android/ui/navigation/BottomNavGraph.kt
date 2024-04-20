@@ -2,6 +2,7 @@ package com.example.navhost.android.ui.navigation
 
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,6 +26,7 @@ fun BottomNavGraph (
     NavHost(navController = navController,
         startDestination = BottomBarScreen.Todo.route ,
     ) {
+        val LocalToDoViewModel = compositionLocalOf<ToDoViewModel> { error("No ToDoViewModel provided!") }
         /**
          * for Init
          */
