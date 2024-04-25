@@ -20,6 +20,7 @@ kotlin {
     sourceSets {
 
         androidMain.dependencies {
+
             /** Jetpack Compose */
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
@@ -74,9 +75,15 @@ kotlin {
                 exclude(group = "org.jetbrains", module = "annotations-java5")
             }
 
+            implementation(libs.compose.material3.datetime.pickers)
+
             /** Data serialization support: Gson(Old) */
             // TODO: Suggest use kotlinx.serialization(Enable plugin!!!)
             implementation(libs.gson)
+
+            /** Work */
+            implementation (libs.androidx.work.runtime.ktx)
+            implementation(libs.androidx.appcompat)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
