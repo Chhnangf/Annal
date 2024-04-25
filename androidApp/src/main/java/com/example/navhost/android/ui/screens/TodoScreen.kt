@@ -63,7 +63,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -99,10 +98,6 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-// 创建一个CompositionLocal来存放selectedDate
-val LocalSelectedDate =
-    compositionLocalOf<MutableState<LocalDate>> { mutableStateOf(LocalDate.now()) }
-
 // 定义一个负责管理selectedDate的Composable
 @Composable
 fun SelectedDateManager(
@@ -129,8 +124,6 @@ fun TodosScreen(
 
     // 4-15新增以日期为主导的数据流订阅
     val boxesWithTodos by todoViewModel.todoBoxesWithTodosByDate.collectAsState()
-    // 引入SelectedDateManager，并传入相应的日期选择回调
-    val selectedDateState = SelectedDateManager(todoViewModel::fetchTodoBoxesBySelectedDate)
 
     val selectDate by todoViewModel.selectedDate.collectAsState()
     val selectedDateString = selectDate.toString()
@@ -158,23 +151,14 @@ fun TodosScreen(
                 // 主题（诗文 + 按钮）
                 CustomTitle()
 
-
-                    selectedDateState.value.let { customDate ->
-                        CustomCalendar(
-                            todoViewModel = todoViewModel,
-                            onDateSelected = { selectedDate ->
-                                selectedDateState.value = selectedDate
-                                Log.d(
-                                    "ToDoScreen",
-                                    "CompositionLocalProvider -> CustomCalendar: $selectedDate"
-                                )
-                                todoViewModel.fetchTodoBoxesBySelectedDate(selectedDate)
-                            },
-                            selectedDate = selectDate,
-                        )
-                        Log.d("ToDoScreen","CompositionLocalProvider: onDateSelected=${selectedDateState.value} refreshDate=$selectDate")
-                    }
-
+                CustomCalendar(
+                    todoViewModel = todoViewModel,
+                    onDateSelected = { selectedDate ->
+                        Log.d("ToDoScreen", "selectedDate -> CustomCalendar: $selectedDate")
+                        todoViewModel.fetchTodoBoxesBySelectedDate(selectedDate)
+                    },
+                    selectedDate = selectDate,
+                )
 
                 Box(
                     modifier = Modifier
@@ -267,14 +251,10 @@ fun TodosScreen(
                     onClick = {
                         val newBox = ToDoBox(
                             title = boxTitle,
-                            selectDateAt = selectedDateState.value.atStartOfDay()
+                            selectDateAt = selectDate.atStartOfDay()
                         )
                         newBox.let { todoViewModel.insertBox(it) }
-                        todoViewModel.fetchTodoBoxesBySelectedDate(selectedDateState.value)
-                        Log.d(
-                            "ToDosScreen",
-                            "AlertDialog -> insertbox: selectedDateState.value: ${selectedDateState.value}"
-                        )
+                        todoViewModel.fetchTodoBoxesBySelectedDate(selectDate)
                         // 重置 boxTitle 和 showDialog
                         boxTitle = ""
                         showDialog = false
@@ -805,12 +785,15 @@ fun CustomCalendar(
                         onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
                         todoViewModel.fetchTodoBoxesBySelectedDate(selected)
                         // 在这里添加更多日期被点击后的处理逻辑，例如打印日期
-                        Log.d("ToDoScreen","CustomCalendar: selected = $selected")
+                        Log.d("ToDoScreen", "CustomCalendar: selected = $selected")
                     },
                     selectedDate = selectedDate,
                     today = LocalDate.now()
                 )
-                Log.d("ToDoScreen","CustomCalendar: selectedDate=$selectedDate today=${LocalDate.now()}")
+                Log.d(
+                    "ToDoScreen",
+                    "CustomCalendar: selectedDate=$selectedDate today=${LocalDate.now()}"
+                )
             }
 
         }
