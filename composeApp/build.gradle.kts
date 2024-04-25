@@ -1,5 +1,3 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -20,6 +18,7 @@ kotlin {
     sourceSets {
 
         androidMain.dependencies {
+
             /** Jetpack Compose */
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
@@ -74,9 +73,15 @@ kotlin {
                 exclude(group = "org.jetbrains", module = "annotations-java5")
             }
 
+            implementation(libs.compose.material3.datetime.pickers)
+
             /** Data serialization support: Gson(Old) */
             // TODO: Suggest use kotlinx.serialization(Enable plugin!!!)
             implementation(libs.gson)
+
+            /** Work */
+            implementation (libs.androidx.work.runtime.ktx)
+            implementation(libs.androidx.appcompat)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -100,7 +105,7 @@ android {
 
     defaultConfig {
         applicationId = "com.chhangf.annal"
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        minSdk =  26//libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
