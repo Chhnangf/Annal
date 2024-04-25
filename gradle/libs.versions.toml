@@ -57,6 +57,7 @@ coilCompose = "2.0.0"
 com-google-android-exoplayer-exoplayer = "2.18.5"
 compose = "1.6.5"
 compose-plugin = "1.6.2"
+composeMaterial3DatetimePickers = "0.7.2"
 datastoreCore = "1.0.0"
 datastorePreferencesCore = "1.0.0"
 coreKtx = "1.10.1"
@@ -88,6 +89,7 @@ roomKtx = "2.6.1"
 recycler = "4.6.2"
 recyclerTable = "4.6.2"
 simpleExt = "4.6.2"
+workRuntimeKtx = "2.9.0"
 
 [libraries]
 androidx-compose-material-material2 = { module = "androidx.compose.material:material", version.ref = "androidx-compose-material-material2" }
@@ -98,6 +100,7 @@ androidx-datastore-core = { module = "androidx.datastore:datastore-core", versio
 androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastorePreferencesCore" }
 androidx-material3-android = { module = "androidx.compose.material3:material3-android", version.ref = "material3Android" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 androidx-core-ktx-v1101 = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose-v172 = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -105,6 +108,7 @@ androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomKtx" }
 androidx-hilt-navigation-fragment = { module = "androidx.hilt:hilt-navigation-fragment", version.ref = "hiltNavigationFragment" }
 com-google-android-exoplayer-exoplayer = { module = "com.google.android.exoplayer:exoplayer", version.ref = "com-google-android-exoplayer-exoplayer" }
+compose-material3-datetime-pickers = { module = "com.marosseleng.android:compose-material3-datetime-pickers", version.ref = "composeMaterial3DatetimePickers" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 accompanist-pager = { module = "com.google.accompanist:accompanist-pager", version.ref = "accompanistPager" }
