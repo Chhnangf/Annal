@@ -1,4 +1,4 @@
-package com.example.navhost.android.data.model
+package com.chhangf.annal.data.model
 
 /**
  *  活跃：无/低/中/高，共4种

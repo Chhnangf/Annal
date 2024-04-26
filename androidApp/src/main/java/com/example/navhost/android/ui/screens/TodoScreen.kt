@@ -1,8 +1,4 @@
 package com.example.navhost.android.ui.screens
-
-
-//import dev.jeziellago.compose.markdowntext.MarkdownText
-
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
@@ -45,6 +41,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,7 +58,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -97,18 +93,6 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
-
-// 定义一个负责管理selectedDate的Composable
-@Composable
-fun SelectedDateManager(
-    onDateSelected: (LocalDate) -> Unit,
-): MutableState<LocalDate> {
-
-    val selectedDateState = remember { mutableStateOf(LocalDate.now()) }
-
-    return selectedDateState
-}
-
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
@@ -174,6 +158,8 @@ fun TodosScreen(
         },
         content = {
 
+            //HorizontalTodoboxSelector(listOf(boxesWithTodos.first().box), onBoxClicked= { })
+
             // 主页 内容区，用padding手动设置顶部栏底部栏留白
             Column(
                 //contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
@@ -182,6 +168,9 @@ fun TodosScreen(
                     .verticalScroll(state = rememberScrollState())
                     .padding(top = 240.dp, bottom = 44.dp)
             ) {
+
+                BoxFilter()
+
                 // *** 遍历数据表显示内容 *** //
                 boxesWithTodos.forEach { (todoBox, todoDatas, doneCount) ->
                     TodoBox(
@@ -1033,6 +1022,67 @@ fun CustomTitle() {
             horizontalArrangement = Arrangement.End
         ) {
             //SwitchWithIconExample()
+        }
+    }
+}
+
+@Composable
+fun BoxFilter() {
+    // 定义每个分类对应的背景颜色
+    val categoryColors = mapOf(
+        "全部" to MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+        "工作" to MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+        "学习" to MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
+        "其他" to MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+    )
+
+    // 状态持有，记录哪个类别被点击
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+
+    Row(
+        horizontalArrangement = Arrangement.SpaceAround,
+        modifier = Modifier
+            .fillMaxWidth(1f)
+            .padding(start = 8.dp,end = 8.dp)
+    ) {
+
+        // 静态显示四个盒子分类，每个盒子具有不同的背景色
+        val list = listOf("全部", "工作", "学习", "其他"
+        )
+        val listCount = list.size
+            list.forEach { category ->
+        val bgColor = if (selectedCategory == category) Color.Transparent // 被选中时透明
+            else categoryColors[category] ?: Color.Transparent // 否则使用定义的颜色或透明
+            Box(
+                modifier = Modifier
+                    .weight(listCount.toFloat())
+                    .height(30.dp)
+                    .background(bgColor)
+                    .padding(8.dp)
+                    .clickable { selectedCategory = if (selectedCategory == category) null else category },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ThumbUp,
+                        contentDescription = "$category 分类图标",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(10.dp)
+                    )
+                    //Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = category,
+                        style = TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                        ),
+                        color = Color.Black
+                    )
+                }
+            }
         }
     }
 }
