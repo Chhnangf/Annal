@@ -1,13 +1,17 @@
 package com.chhangf.annal.ui.screens
 
+import android.util.Log
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.DraggableState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,9 +34,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.chhangf.annal.SessionViewModel
+import com.chhangf.annal.data.viewmodel.ToDoViewModel
 import kotlinx.coroutines.delay
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -58,6 +64,7 @@ fun PublishScreen(
         }
         Spacer(Modifier.height(10.dp))
         ExpandableBox()
+
     }
 
 
@@ -76,7 +83,7 @@ fun ExpandableBox() {
     }
 
     // val thresholdHeight = 200f // 高度阈值，超过此高度显示30天日历
-    val dragThreshold = maxHeight * 0.4f // 设定40%作为动画触发的拖动阈值
+    val dragThreshold = maxHeight * 0.6f // 设定40%作为动画触发的拖动阈值
 
     // calendar type
     var calendarType by remember { mutableStateOf("7") }
@@ -89,7 +96,7 @@ fun ExpandableBox() {
     val animateAction = animateDpAsState(
         targetValue = animateHeight.dp,
         animationSpec = tween(
-            durationMillis = 100, // 指定动画持续时间，例如500毫秒
+            durationMillis = 1000, // 指定动画持续时间，例如500毫秒
             easing = LinearOutSlowInEasing // 线性进出的插值器，实现线性动画效果
         )
     )
@@ -99,6 +106,7 @@ fun ExpandableBox() {
     val draggableState = remember {
         DraggableState { delta ->
             totalDelta += delta
+            Log.d("ExpandableBox","totalDelta=$totalDelta, dragThreshold=$dragThreshold")
             // 如果拖动方向向下并且未达到最大高度，则增加高度
             if (totalDelta > dragThreshold) {
                 totalDelta = dragThreshold
@@ -224,4 +232,52 @@ fun getThisMonthDates(): List<LocalDate> {
     return generateSequence(monthStart) { date -> date.plusDays(1) }
         .takeWhile { it.isBefore(monthEnd.plusDays(1)) }
         .toList()
+}
+
+@Composable
+fun CustomSmoothCalendar(
+    todoViewModel: ToDoViewModel,
+    onDateSelected: (LocalDate) -> Unit,
+    selectedDate: LocalDate
+) {
+    val initialHeight = 35f
+    val maxHeight = 310f
+    val dragThreshold = maxHeight * 0.2f
+    var varAnimiteH by remember { mutableStateOf(initialHeight) }
+    var isExpanding by remember { mutableStateOf(false) }
+    var calendarType by remember { mutableStateOf("week") }
+
+    val animateAction = animateFloatAsState(
+        targetValue = varAnimiteH,
+        animationSpec = SpringSpec(stiffness = 500f)
+    )
+
+    Box(
+        modifier = Modifier
+            .height(with(LocalDensity.current) { animateAction.value.toDp() })
+            .draggable(
+                orientation = Orientation.Vertical,
+                state = rememberDraggableState { delta ->
+                    varAnimiteH += delta.toFloat()
+                    isExpanding = varAnimiteH >= initialHeight + dragThreshold
+                    if (isExpanding) {
+                        calendarType = "month"
+                    } else {
+                        calendarType = "week"
+                    }
+                    // 添加边界检查，确保高度不会超出设定范围
+                    varAnimiteH = varAnimiteH.coerceIn(initialHeight, maxHeight)
+                },
+                onDragStopped = { velocity ->
+                    // 可以根据需要调整释放时的逻辑，这里简化处理
+                }
+            )
+    ) {
+        // 根据calendarType显示不同的日历视图
+        if (calendarType == "week") {
+            DisplayCurrentWeekDates(todoViewModel, onDateSelected, selectedDate, LocalDate.now())
+        } else if (calendarType == "month") {
+            DisplayCurrentMonthDates(todoViewModel, onDateSelected, selectedDate, LocalDate.now())
+        }
+    }
 }

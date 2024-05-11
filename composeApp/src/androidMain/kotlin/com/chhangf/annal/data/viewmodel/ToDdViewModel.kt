@@ -80,11 +80,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         // 创建并初始化ToDoRepository实例
         repository = ToDoRepository(toDoDao)
 
-        // 初始化数据表数据
-        viewModelScope.launch {
-            refreshStateFlowByDate(selectedDate.value)
-        }
-
         viewModelScope.launch(Dispatchers.IO) {
 
             val doneCount = toDoDao.getTodoCount()
@@ -100,7 +95,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
 
     }
 
-    // 刷新数据，根据日期和Box ID
+    // 刷新box with todos
     private suspend fun refreshData() {
         viewModelScope.launch {
             _todoBoxesWithTodosByDate.value = when (_selectedBoxId.value) {
@@ -115,17 +110,6 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ***数据库 增/删/改/查 都会调用这个方法 刷新stateflow数据 ****
-    private suspend fun refreshStateFlowByDate(selectedDate: LocalDate) {
-
-        // update _selectedDate is Calendar selected Date
-        _selectedDate.value = selectedDate
-
-        // update _todoWithActivity is the return value of getWeeklyActivity()
-        val weeklyActivity = repository.getWeeklyActivity()
-        _todoWithActivity.emit(weeklyActivity)
-
-    }
 
     // 选中指定ID的Box，用于初始化或UI交互
     fun selectBox(boxId: Long?) = viewModelScope.launch(Dispatchers.IO) {
@@ -154,7 +138,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteItem(toDoData: ToDoData) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteItem(toDoData)
-            refreshStateFlowByDate(selectedDate.value)
+            refreshData()
         }
     }
 
@@ -225,7 +209,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         }
         // 更新StateFlow中的数据
         viewModelScope.launch(Dispatchers.Main) {
-            refreshStateFlowByDate(selectedDate.value)
+            refreshData()
         }
     }
 
@@ -234,7 +218,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTodoBoxById(boxId)
             viewModelScope.launch(Dispatchers.Main) {
-                refreshStateFlowByDate(selectedDate.value)
+                refreshData()
             }
         }
     }
@@ -348,7 +332,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
                 defaultBoxes.forEach() {
                     repository.insertBox(it)
                 }
-                refreshStateFlowByDate(selectedDate.value)
+                refreshData()
                 //defaultBoxes.firstOrNull()?.id?.let { onBoxSelected(selectedDate.value, it) }
                 // 更新标志表示已经不是首次启动
                 with(sharedPreferences.edit()) {

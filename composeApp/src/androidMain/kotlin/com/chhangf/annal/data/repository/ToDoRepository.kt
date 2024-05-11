@@ -9,7 +9,6 @@ import com.chhangf.annal.data.model.ToDoBoxWithTodos
 import com.chhangf.annal.data.model.ToDoData
 import com.chhangf.annal.data.model.ToDoDataWithDate
 import kotlinx.coroutines.flow.Flow
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.temporal.TemporalAdjusters
@@ -131,23 +130,31 @@ class ToDoRepository @Inject constructor (private val toDoDao: ToDoDao) {
 
     suspend fun getWeeklyActivity(): List<ToDoDataWithDate> {
 
-        // 计算本周的周一和周日日期
-        var startOfWeek = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val endOfWeek = startOfWeek.plusDays(6L) // 周日
-        //Log.d("ToDoRepository", "getWeeklyActivity:startOfWeek=$startOfWeek, endOfWeek=$endOfWeek")
-
         // 根据日期范围获取每天的活跃度数据
         val dailyActivities = mutableListOf<ToDoDataWithDate>()
+        // 计算本周的周一和周日日期
+//        var startOfWeek = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+//        val endOfWeek = startOfWeek.plusDays(6L)
+//        while (startOfWeek <= endOfWeek) {
+//            val activity = getActivityOnDate(startOfWeek)
+//            dailyActivities.add(activity)
+//            startOfWeek = startOfWeek.plusDays(1)
+//        }
 
-        while (startOfWeek <= endOfWeek) {
-            val activity = getActivityOnDate(startOfWeek)
+        // 获取本月的第一天
+        var startOfMonth = LocalDate.now().with(TemporalAdjusters.firstDayOfMonth())
+
+        // 获取本月的最后一天
+        val endOfMonth = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth())
+        while (startOfMonth <= endOfMonth) {
+            val activity = getActivityOnDate(startOfMonth)
             dailyActivities.add(activity)
-            startOfWeek = startOfWeek.plusDays(1)
+            startOfMonth = startOfMonth.plusDays(1)
         }
 
         val logMessage = dailyActivities.joinToString(separator = "\n") { it.toString() }
         //Log.d("ToDoRepository", "getWeeklyActivity:\n$logMessage")
-
+        Log.d("getWeeklyActivity", "调用次数")
         return dailyActivities
     }
 

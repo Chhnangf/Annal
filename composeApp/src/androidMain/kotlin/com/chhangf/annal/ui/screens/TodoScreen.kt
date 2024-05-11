@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -146,13 +148,17 @@ fun TodosScreen(
     Scaffold(
         topBar = {},
         content = {
-            Column (modifier = Modifier.background(Color.White)) {
+            Column(modifier = Modifier.background(Color.White)) {
                 // 自定义搜索栏，接受一个回调函数用于ui响应搜索文本的变化
                 Column() {
                     Card(
                         //modifier = Modifier.background(Color(0xffff548383).copy(alpha = 0.8f)), //绿色ff548383 蓝色ff7da0ca
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xff548383).copy(alpha = 0.8f))
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xff548383).copy(
+                                alpha = 0.8f
+                            )
+                        )
                     ) {
                         // 主题（诗文 + 按钮）
                         CustomTitle()
@@ -622,35 +628,34 @@ fun SwitchWithIconExample() {
     )
 }
 
+// 日历
 @Composable
 fun CustomCalendar(
     todoViewModel: ToDoViewModel,
     onDateSelected: (LocalDate) -> Unit, // 修改这里的参数类型
     selectedDate: LocalDate
 ) {
-
     // 初始高度和最大扩展高度
-    var initialHeight by remember { mutableStateOf(60f) }
-    val maxHeight = 250f
-    var animateHeight by remember { mutableStateOf(initialHeight) }
-    fun updateHeight(height: Float) {
-        animateHeight = height
+    var initialHeight by remember { mutableStateOf(35f) }
+    val maxHeight = 180f
+    val dragThreshold = initialHeight +  initialHeight * 0.2f // 设定40%作为动画触发的拖动阈值
+
+    var varAnimiteH by remember { mutableStateOf(initialHeight) }
+    fun updateAnimiteHp(height: Float) {
+        varAnimiteH = height
     }
-
-    // val thresholdHeight = 200f // 高度阈值，超过此高度显示30天日历
-    val dragThreshold = maxHeight * 0.15f // 设定40%作为动画触发的拖动阈值
-
+    var showMaxHeight by remember { mutableStateOf(false) }
     // calendar type
-    var calendarType by remember { mutableStateOf("7") }
+    var calendarType by remember { mutableStateOf("week") }
     fun updateCalendarType(height: Float) {
-        calendarType = if (height >= initialHeight + dragThreshold) "30" else "7"
+        calendarType = if (showMaxHeight) "month" else "week"
     }
 
 
     val animateAction = animateDpAsState(
-        targetValue = animateHeight.dp,
+        targetValue = if (showMaxHeight) {maxHeight.dp} else {varAnimiteH.dp},
         animationSpec = tween(
-            durationMillis = 100, // 指定动画持续时间，例如500毫秒
+            durationMillis = 500, // 指定动画持续时间，例如500毫秒
             easing = LinearOutSlowInEasing // 线性进出的插值器，实现线性动画效果
         )
     )
@@ -663,16 +668,18 @@ fun CustomCalendar(
             // 如果拖动方向向下并且未达到最大高度，则增加高度
             if (totalDelta > dragThreshold) {
                 totalDelta = dragThreshold
-                animateHeight = maxHeight
+                varAnimiteH = maxHeight
+                showMaxHeight = true
             }
             // 如果拖动方向向上且高度大于初始高度，则减小高度直到初始高度
             else if (delta < 0) {
                 totalDelta = 0f
-                animateHeight = initialHeight
+                varAnimiteH = initialHeight
+                showMaxHeight = false
             }
 
-            updateHeight((animateHeight + totalDelta / 4).coerceIn(initialHeight, maxHeight / 1.5f))
-            updateCalendarType(animateHeight + totalDelta / 4)
+            updateAnimiteHp((varAnimiteH + totalDelta / 4).coerceIn(initialHeight, maxHeight / 2f))
+
         }
     }
 
@@ -687,74 +694,101 @@ fun CustomCalendar(
     ) {
         Column(
             modifier = Modifier
-
         ) {
             Column {
-            Row(
-                modifier = Modifier
-                    //.border(1.dp, Color.Red)
-                    .padding(10.dp, 10.dp, 10.dp, 0.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val currentYearMonth by remember {
-                    mutableStateOf(
-                        YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-M"))
-                    )
-                }
-                Text(text = currentYearMonth, fontSize = 16.sp, fontFamily = fontFamilys)
-
+                // 年月历
                 Row(
-                    modifier = Modifier,
+                    modifier = Modifier
+                        //.border(1.dp, Color.Red)
+                        .padding(10.dp, 10.dp, 10.dp, 0.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "活跃低", fontSize = 12.sp)
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        imageVector = Icons.Default.FavoriteBorder,
-                        contentDescription = "活跃低"
-                    )
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        imageVector = Icons.Default.FavoriteBorder,
-                        contentDescription = "活跃中"
-                    )
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        imageVector = Icons.Default.FavoriteBorder,
-                        contentDescription = "活跃高"
-                    )
-                    Text(text = "高", fontSize = 12.sp)
+                    val currentYearMonth by remember {
+                        mutableStateOf(
+                            YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-M"))
+                        )
+                    }
+
+                    Row {
+                        Text(text = currentYearMonth, fontSize = 16.sp, fontFamily = fontFamilys)
+                        // TODO点击弹出alert界面，显示年月方格
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "年月下拉"
+                        )
+                    }
+
+
+                    Row(
+                        modifier = Modifier,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "活跃低", fontSize = 12.sp)
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            imageVector = Icons.Default.FavoriteBorder,
+                            contentDescription = "活跃低"
+                        )
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            imageVector = Icons.Default.FavoriteBorder,
+                            contentDescription = "活跃中"
+                        )
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            imageVector = Icons.Default.FavoriteBorder,
+                            contentDescription = "活跃高"
+                        )
+                        Text(text = "高", fontSize = 12.sp)
+                    }
+
+
                 }
 
+                // ****** 周日历 || 月日历 ******
+                // 以中文显示星期几
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth().height(20.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DayOfWeek.entries.forEach { day ->
+                        val shortWeekday = day.toString().substring(0, 3).uppercase(Locale.ENGLISH)
+                        val chineseWeekday = weekdayChineseMap[shortWeekday]
+                        Text(
+                            modifier = Modifier,
+                            text = chineseWeekday ?: shortWeekday,
+                            fontSize = 10.sp,
+                            fontFamily = fontFamilys
+                        )
+                    }
 
+                }
+
+                // 日号
+                Column(
+                    modifier = Modifier.height(animateAction.value)
+                ) {
+                        // 更新显示逻辑，根据calendarType选择显示周视图还是月视图
+                        when (calendarType) {
+                            "week" -> DisplayCurrentWeekDates(
+                                todoViewModel,
+                                onDateSelected,
+                                selectedDate,
+                                LocalDate.now()
+                            )
+                            "month" -> DisplayCurrentMonthDates(
+                                todoViewModel,
+                                onDateSelected,
+                                selectedDate,
+                                LocalDate.now()
+                            )
+                        }
+                }
             }
-
-            // ****** 周日历 || 月日历 ******
-            Column(
-                modifier = Modifier.padding(6.dp, 0.dp, 6.dp, 10.dp)
-                    .height(animateAction.value)
-            ) {
-
-                DisplayCurrentWeekDates(
-                    todoViewModel = todoViewModel,
-                    onDateSelected = { selected ->
-                        onDateSelected(selected) // 调用传入的 onDateSelected 回调，通知 selectedDate 的变化
-                        //todoViewModel.fetchCalendarDate(selected)
-                        // 在这里添加更多日期被点击后的处理逻辑，例如打印日期
-                        Log.d("ToDoScreen", "CustomCalendar: selected = $selected")
-                    },
-                    selectedDate = selectedDate,
-                    today = LocalDate.now()
-                )
-                Log.d(
-                    "ToDoScreen",
-                    "CustomCalendar: selectedDate=$selectedDate today=${LocalDate.now()}"
-                )
-            }
-
-}
             Row(
                 modifier = Modifier
                     .height(20.dp)
@@ -765,11 +799,11 @@ fun CustomCalendar(
                         orientation = Orientation.Vertical,
                         state = draggableState,
                         onDragStopped = {
-                            delay(100L)
                             // 当拖动停止时，确保高度不超过最大值也不低于初始值
-                            if (animateAction.value < (initialHeight.dp + dragThreshold.dp * 1.5f)) {
-                                animateHeight = initialHeight
+                            if (animateAction.value < maxHeight.dp *0.5f) {
+                                varAnimiteH = initialHeight
                             }
+                            updateCalendarType(varAnimiteH)
                         }
                     ),
 
@@ -799,7 +833,7 @@ val weekdayChineseMap = mapOf(
 )
 
 
-// 在使用此 Composable 时，传入一个处理日期选择的回调函数
+// 周日历
 @Composable
 fun DisplayCurrentWeekDates(
     todoViewModel: ToDoViewModel,
@@ -817,24 +851,7 @@ fun DisplayCurrentWeekDates(
     val firstDayOfWeek =
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        DayOfWeek.entries.forEach { day ->
-            val shortWeekday = day.toString().substring(0, 3).uppercase(Locale.ENGLISH)
-            val chineseWeekday = weekdayChineseMap[shortWeekday]
-            Text(
-                modifier = Modifier,
-                text = chineseWeekday ?: shortWeekday,
-                fontSize = 10.sp,
-                fontFamily = fontFamilys
-            )
-        }
 
-    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceAround,
@@ -853,7 +870,6 @@ fun DisplayCurrentWeekDates(
             val todoDone = weekDateWithDate?.doneTodos ?: 0
             val selectDate = selectDateWithDate?.selectedDate
 
-            //Log.d("ToDoScreen","DisplayCurrentWeekDates:\nactivity=$activity todoCount=$todoCount todoDone=$todoDone")
             val backgroundColor = when (activity) {
                 Activity.NONE -> Color.Transparent
                 Activity.LOW -> Color(0xff9be9a8).copy(alpha = 0.6f)
@@ -875,15 +891,76 @@ fun DisplayCurrentWeekDates(
                 doneCount = todoDone,
                 totalCount = todoCount,
                 backgroundColor = backgroundColor, // Color(0x12345678)
-
-
-            ) {
-
-            }
+            )
         }
     }
 }
 
+// 月日历
+@Composable
+fun DisplayCurrentMonthDates(
+    todoViewModel: ToDoViewModel,
+    onDateSelected: (LocalDate) -> Unit,
+    selectedDate: LocalDate?,
+    today: LocalDate
+) {
+    // 订阅 todoViewModel 的 todoDataWithDate
+    val todoDataWithDate by todoViewModel.todoWithActivity.collectAsState()
+    LaunchedEffect(Unit) {
+        todoViewModel.refreshWeeklyActivity()
+    }
+
+    val currentMonth = YearMonth.from(selectedDate)
+    val daysInMonth = currentMonth.lengthOfMonth()
+
+    // 计算当月第一天是周几，用于对齐日历
+    val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value
+    val weekdays = DayOfWeek.values().toList()
+
+    Column(modifier = Modifier.padding(8.dp)) {
+
+        // 创建一个7x6的网格布局来显示整个月的日历
+        LazyVerticalGrid(columns = GridCells.Fixed(7)) {
+            items(daysInMonth + firstDayOfWeek - 1) { index ->
+                val dayOfMonth = index - firstDayOfWeek + 1
+                if (dayOfMonth > 0 && dayOfMonth <= daysInMonth) {
+                    val currentDate = currentMonth.atDay(dayOfMonth)
+                    val isSelected = currentDate == selectedDate
+                    val isToday = currentDate == today
+
+                    // 从 todoDataWithDate 中找到对应日期的活动度信息
+                    val weekDateWithDate = todoDataWithDate.find { it.selectedDate == currentDate }
+
+                    val selectDateWithDate = todoDataWithDate.find { it.selectedDate == selectedDate }
+
+                    val activity = weekDateWithDate?.activity ?: Activity.NONE
+                    val todoCount = weekDateWithDate?.totalTodos ?: 0
+                    val todoDone = weekDateWithDate?.doneTodos ?: 0
+                    val selectDate = selectDateWithDate?.selectedDate
+
+                    val backgroundColor = when (activity) {
+                        Activity.NONE -> Color.Transparent
+                        Activity.LOW -> Color(0xff9be9a8).copy(alpha = 0.6f)
+                        Activity.MEDIUM -> Color(0xff40c463).copy(alpha = 0.6f)
+                        Activity.HIGH -> Color(0xff30a14e).copy(alpha = 0.8f)
+                    }
+
+                    CustomBottomBackgroundTextButton(
+                        currentDate,
+                        isSelectedDate = isSelected,
+                        isToday = isToday,
+                        onClick = {
+                            onDateSelected(currentDate)
+                        },
+                        doneCount = todoDone,
+                        totalCount = todoCount,
+                        backgroundColor = backgroundColor, // Color(0x12345678)
+                    )
+                }
+            }
+        }
+    }
+}
 
 // 自定义日期选项样式
 @Composable
@@ -895,7 +972,6 @@ fun CustomBottomBackgroundTextButton(
     doneCount: Int,
     totalCount: Int,
     backgroundColor: Color = Color(0xff888888),
-    content: @Composable () -> Unit
 ) {
     val fontWeight = if (isSelectedDate) FontWeight.Bold else FontWeight.Normal
     val fontSize = if (isSelectedDate) 14.sp else 12.sp
@@ -969,22 +1045,7 @@ fun CustomBottomBackgroundTextButton(
             )
         }
 
-//        if (isToday) {
-//            DateRoundedRect(
-//                color = Color.Red,
-//                modifier = Modifier
-//                    .align(Alignment.BottomCenter)
-//                    .padding(bottom = 4.dp)
-//            )
-//        }
-//        if (!isToday && isSelectedDate) {
-//            DateRoundedRect(
-//                color = Color.Black,
-//                modifier = Modifier
-//                    .align(Alignment.BottomCenter)
-//                    .padding(bottom = 4.dp)
-//            )
-//        }
+
     }
 }
 
