@@ -92,12 +92,15 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.toFontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.chhangf.annal.R
 import com.chhangf.annal.data.model.Activity
 import com.chhangf.annal.data.model.Priority
 import com.chhangf.annal.data.model.ToDoBox
@@ -113,6 +116,9 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+
+
+val fontFamilys = Font(R.font.poppins_medium).toFontFamily()
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
@@ -145,7 +151,7 @@ fun TodosScreen(
                 Column() {
                     Card(
                         //modifier = Modifier.background(Color(0xffff548383).copy(alpha = 0.8f)), //绿色ff548383 蓝色ff7da0ca
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xff548383).copy(alpha = 0.8f))
                     ) {
                         // 主题（诗文 + 按钮）
@@ -697,7 +703,7 @@ fun CustomCalendar(
                         YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-M"))
                     )
                 }
-                Text(text = currentYearMonth, fontSize = 24.sp)
+                Text(text = currentYearMonth, fontSize = 16.sp, fontFamily = fontFamilys)
 
                 Row(
                     modifier = Modifier,
@@ -823,7 +829,8 @@ fun DisplayCurrentWeekDates(
             Text(
                 modifier = Modifier,
                 text = chineseWeekday ?: shortWeekday,
-                fontSize = 16.sp
+                fontSize = 10.sp,
+                fontFamily = fontFamilys
             )
         }
 
