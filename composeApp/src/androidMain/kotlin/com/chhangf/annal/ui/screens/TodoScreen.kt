@@ -6,6 +6,8 @@ package com.chhangf.annal.ui.screens
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -15,11 +17,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,12 +46,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -83,6 +89,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -128,7 +135,7 @@ fun TodosScreen(
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
-
+    var columnHeight by remember { mutableStateOf(0) }
     // 使用Scaffold创建包含顶部栏和底部栏的布局
     Scaffold(
 
@@ -141,6 +148,7 @@ fun TodosScreen(
                 Column(
                     modifier = Modifier
                         .background(Color(0xff548383).copy(alpha = 0.8f)) //绿色ff548383 蓝色ff7da0ca
+                        .onSizeChanged { columnHeight = it.height }
                 ) {
 
                     // 主题（诗文 + 按钮）
@@ -158,18 +166,6 @@ fun TodosScreen(
                         selectedDate = selectDate,
                     )
 
-                    Box(
-                        modifier = Modifier
-                            .height(20.dp)
-                            .clip(RoundedCornerShape(28.dp))
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "下拉"
-                        )
-                    }
                 }
             }
         },
@@ -182,7 +178,7 @@ fun TodosScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(state = rememberScrollState())
-                    .padding(top = 240.dp, bottom = 44.dp)
+                    .padding(top = 220.dp, bottom = 44.dp)
             ) {
                 BoxSelectionBar(todoViewModel)
                 // *** 遍历数据表显示内容 *** //
@@ -290,8 +286,7 @@ fun TodoBox(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-
+                .padding(horizontal = 12.dp, vertical = 4.dp)
                 .clip(RoundedCornerShape(8.dp)),
         ) {
             // 竖向容器：标题功能栏 + 内容栏 + 底部功能栏
@@ -475,7 +470,7 @@ fun ToDosItem(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 6.dp, end = 8.dp)
+                    .padding(top = 4.dp, bottom = 6.dp, start = 6.dp, end = 8.dp)
                 //.border(1.dp, Color.Red)
                 ,
                 verticalAlignment = Alignment.CenterVertically,
@@ -500,7 +495,7 @@ fun ToDosItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             //.border(1.dp, Color.Red)
-                            .padding(vertical = 2.dp)
+                            .padding(end = 8.dp)
                     ) {
                         // 添加针对每个子任务的复选框
                         CustomCheckbox(
@@ -512,7 +507,7 @@ fun ToDosItem(
                             priority = todo.priority,
                             isSubCheckbox = true
                         )
-
+                        Spacer(Modifier.width(4.dp))
                         // 子任务描述及其他UI元素
                         Text(text = subTask.description)
 
@@ -562,7 +557,7 @@ fun CustomCheckbox(
 ) {
     val shape = if (isSubCheckbox) CircleShape else CircleShape // RectangleShape 方形
     val borderWidth = if (isSubCheckbox) 1.dp else 2.dp
-    val borderColor = if (isSubCheckbox) Color.Black else when (priority) {
+    val borderColor = if (isSubCheckbox) Color.Gray else when (priority) {
         Priority.HIGH -> Color.Red
         Priority.MEDIUM -> Color(0xFF6495ED)
         Priority.LOW -> Color(0xFF007900)
@@ -634,16 +629,66 @@ fun CustomCalendar(
     selectedDate: LocalDate
 ) {
 
+    // 初始高度和最大扩展高度
+    var initialHeight by remember { mutableStateOf(140f) }
+    val maxHeight = 400f
+    var animateHeight by remember { mutableStateOf(initialHeight) }
+    fun updateHeight(height: Float) {
+        animateHeight = height
+    }
+
+    // val thresholdHeight = 200f // 高度阈值，超过此高度显示30天日历
+    val dragThreshold = maxHeight * 0.15f // 设定40%作为动画触发的拖动阈值
+
+    // calendar type
+    var calendarType by remember { mutableStateOf("7") }
+    fun updateCalendarType(height: Float) {
+        calendarType = if (height >= initialHeight + dragThreshold) "30" else "7"
+    }
+
+
+    val animateAction = animateDpAsState(
+        targetValue = animateHeight.dp,
+        animationSpec = tween(
+            durationMillis = 100, // 指定动画持续时间，例如500毫秒
+            easing = LinearOutSlowInEasing // 线性进出的插值器，实现线性动画效果
+        )
+    )
+
+    var totalDelta by remember { mutableStateOf(0f) } // 记录delta
+    // 可拖动状态
+    val draggableState = remember {
+        DraggableState { delta ->
+            totalDelta += delta
+            // 如果拖动方向向下并且未达到最大高度，则增加高度
+            if (totalDelta > dragThreshold) {
+                totalDelta = dragThreshold
+                animateHeight = maxHeight
+            }
+            // 如果拖动方向向上且高度大于初始高度，则减小高度直到初始高度
+            else if (delta < 0) {
+                totalDelta = 0f
+                animateHeight = initialHeight
+            }
+
+            updateHeight((animateHeight + totalDelta / 4).coerceIn(initialHeight, maxHeight/1.5f))
+            updateCalendarType(animateHeight+ totalDelta / 4)
+        }
+    }
+
+
     // 日历
     Box(
         modifier = Modifier
-            .padding(6.dp, 0.dp, 6.dp, 0.dp)
+            .padding(12.dp, 0.dp, 12.dp, 10.dp)
             .clip(RoundedCornerShape(10.dp))
+
 
     ) {
         Column(
             modifier = Modifier
                 .background(Color.White)
+                .height(animateAction.value)
         ) {
             Row(
                 modifier = Modifier
@@ -707,8 +752,38 @@ fun CustomCalendar(
                 )
             }
 
+
+            Row(
+                modifier = Modifier
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .fillMaxWidth()
+
+                    .draggable(
+                        orientation = Orientation.Vertical,
+                        state = draggableState,
+                        onDragStopped = {
+                            delay(100L)
+                            // 当拖动停止时，确保高度不超过最大值也不低于初始值
+                            if (animateAction.value < (initialHeight.dp + dragThreshold.dp * 1.5f)) {
+                                animateHeight = initialHeight
+                            }
+                        }
+                    ),
+
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "下拉",
+                    tint = Color.Gray.copy(0.2f)
+                )
+            }
         }
     }
+
+
 }
 
 val weekdayChineseMap = mapOf(
@@ -962,7 +1037,7 @@ fun BoxSelectionBar(todoViewModel: ToDoViewModel) {
     Log.d("ToDoScreen", "BoxSelectionBar: $todoBox")
     LazyRow(
         modifier = Modifier
-            .fillMaxWidth().padding(10.dp),
+            .fillMaxWidth().padding(6.dp),
         horizontalArrangement = Arrangement.Start,
     ) {
         item {
