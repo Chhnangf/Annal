@@ -57,6 +57,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -89,7 +90,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -135,86 +135,81 @@ fun TodosScreen(
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
-    var columnHeight by remember { mutableStateOf(0) }
+
     // 使用Scaffold创建包含顶部栏和底部栏的布局
     Scaffold(
-
-        topBar = {
-            // 自定义搜索栏，接受一个回调函数用于ui响应搜索文本的变化
-            Card(
-                modifier = Modifier,
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(Color(0xff548383).copy(alpha = 0.8f)) //绿色ff548383 蓝色ff7da0ca
-                        .onSizeChanged { columnHeight = it.height }
-                ) {
-
-                    // 主题（诗文 + 按钮）
-                    CustomTitle()
-
-                    CustomCalendar(
-                        todoViewModel = todoViewModel,
-                        onDateSelected = { selectedDate ->
-                            Log.d(
-                                "ToDoScreen",
-                                "selectedDate -> CustomCalendar: $selectedDate"
-                            )
-                            todoViewModel.fetchCalendarDate(selectedDate)
-                        },
-                        selectedDate = selectDate,
-                    )
-
-                }
-            }
-        },
-
+        topBar = {},
         content = {
+            Column (modifier = Modifier.background(Color.White)) {
+                // 自定义搜索栏，接受一个回调函数用于ui响应搜索文本的变化
+                Column() {
+                    Card(
+                        //modifier = Modifier.background(Color(0xffff548383).copy(alpha = 0.8f)), //绿色ff548383 蓝色ff7da0ca
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xff548383).copy(alpha = 0.8f))
+                    ) {
+                        // 主题（诗文 + 按钮）
+                        CustomTitle()
 
-            // 主页 内容区，用padding手动设置顶部栏底部栏留白
-            Column(
-                //contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(state = rememberScrollState())
-                    .padding(top = 220.dp, bottom = 44.dp)
-            ) {
-                BoxSelectionBar(todoViewModel)
-                // *** 遍历数据表显示内容 *** //
-                // 判断boxesWithTodos中所有的todos是否都为空
-                val allTodosEmpty = boxesWithTodos.all { it.todos.isEmpty() }
-                //Log.d("ToDoScreen", "allTodosEmpty -> $allTodosEmpty")
-                if (allTodosEmpty) {
-                    CreateTaskPrompt()
-                } else {
-                    boxesWithTodos.forEach { (todoBox, todos, doneCount) ->
-                        TodoBox(
+                        CustomCalendar(
                             todoViewModel = todoViewModel,
-                            todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
-                            title = todoBox.title,
-                            todos = todos,
-                            todoDone = doneCount,
-                            onEdit = { todoId, _ ->
-                                // 实现导航到编辑页面的逻辑
-                                navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
+                            onDateSelected = { selectedDate ->
+                                Log.d(
+                                    "ToDoScreen",
+                                    "selectedDate -> CustomCalendar: $selectedDate"
+                                )
+                                todoViewModel.fetchCalendarDate(selectedDate)
                             },
-                            onAddButtonClick = {
-                                // 实现添加待办事项的逻辑
-                                navHostController.navigate("todos/edit/-1?isNew=true&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
-                            },
-                            onTodoCheckedChange = { todos, isChecked ->
-                                // 实现待办事项的勾选状态变化逻辑
-                                todoViewModel.updateTodoState(todos, isChecked)
-                            },
-                            onDeleteBox = { todoBoxId ->
-                                // 实现删除收纳盒的逻辑
-                                todoViewModel.deleteTodoBoxById(todoBoxId)
-                            },
-                            onSubTaskCheckedChange = { todos, subTaskIndex, isChecked ->
-                                todoViewModel.refreshSubState(todos, subTaskIndex, isChecked)
-                            },
+                            selectedDate = selectDate,
                         )
+
+                    }
+                }
+
+                // 主页 内容区，用padding手动设置顶部栏底部栏留白
+                Column(
+                    //contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(state = rememberScrollState())
+                        .padding(bottom = 44.dp)
+                ) {
+                    BoxSelectionBar(todoViewModel)
+                    // *** 遍历数据表显示内容 *** //
+                    // 判断boxesWithTodos中所有的todos是否都为空
+                    val allTodosEmpty = boxesWithTodos.all { it.todos.isEmpty() }
+                    //Log.d("ToDoScreen", "allTodosEmpty -> $allTodosEmpty")
+                    if (allTodosEmpty) {
+                        CreateTaskPrompt()
+                    } else {
+                        boxesWithTodos.forEach { (todoBox, todos, doneCount) ->
+                            TodoBox(
+                                todoViewModel = todoViewModel,
+                                todoBoxId = todoBox.id ?: error("Missing todoBoxId"),
+                                title = todoBox.title,
+                                todos = todos,
+                                todoDone = doneCount,
+                                onEdit = { todoId, _ ->
+                                    // 实现导航到编辑页面的逻辑
+                                    navHostController.navigate("todos/edit/${todoId}?isNew=false&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
+                                },
+                                onAddButtonClick = {
+                                    // 实现添加待办事项的逻辑
+                                    navHostController.navigate("todos/edit/-1?isNew=true&todoBoxId=${todoBox.id}&selectDateAt=${selectedDateString}")
+                                },
+                                onTodoCheckedChange = { todos, isChecked ->
+                                    // 实现待办事项的勾选状态变化逻辑
+                                    todoViewModel.updateTodoState(todos, isChecked)
+                                },
+                                onDeleteBox = { todoBoxId ->
+                                    // 实现删除收纳盒的逻辑
+                                    todoViewModel.deleteTodoBoxById(todoBoxId)
+                                },
+                                onSubTaskCheckedChange = { todos, subTaskIndex, isChecked ->
+                                    todoViewModel.refreshSubState(todos, subTaskIndex, isChecked)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -596,7 +591,6 @@ fun CustomCheckbox(
 }
 
 
-
 // 自定义滑块
 @Composable
 fun SwitchWithIconExample() {
@@ -630,8 +624,8 @@ fun CustomCalendar(
 ) {
 
     // 初始高度和最大扩展高度
-    var initialHeight by remember { mutableStateOf(140f) }
-    val maxHeight = 400f
+    var initialHeight by remember { mutableStateOf(60f) }
+    val maxHeight = 250f
     var animateHeight by remember { mutableStateOf(initialHeight) }
     fun updateHeight(height: Float) {
         animateHeight = height
@@ -671,8 +665,8 @@ fun CustomCalendar(
                 animateHeight = initialHeight
             }
 
-            updateHeight((animateHeight + totalDelta / 4).coerceIn(initialHeight, maxHeight/1.5f))
-            updateCalendarType(animateHeight+ totalDelta / 4)
+            updateHeight((animateHeight + totalDelta / 4).coerceIn(initialHeight, maxHeight / 1.5f))
+            updateCalendarType(animateHeight + totalDelta / 4)
         }
     }
 
@@ -682,14 +676,14 @@ fun CustomCalendar(
         modifier = Modifier
             .padding(12.dp, 0.dp, 12.dp, 10.dp)
             .clip(RoundedCornerShape(10.dp))
-
+            .background(Color.White)
 
     ) {
         Column(
             modifier = Modifier
-                .background(Color.White)
-                .height(animateAction.value)
+
         ) {
+            Column {
             Row(
                 modifier = Modifier
                     //.border(1.dp, Color.Red)
@@ -731,8 +725,10 @@ fun CustomCalendar(
 
             }
 
+            // ****** 周日历 || 月日历 ******
             Column(
                 modifier = Modifier.padding(6.dp, 0.dp, 6.dp, 10.dp)
+                    .height(animateAction.value)
             ) {
 
                 DisplayCurrentWeekDates(
@@ -752,7 +748,7 @@ fun CustomCalendar(
                 )
             }
 
-
+}
             Row(
                 modifier = Modifier
                     .height(20.dp)
@@ -874,7 +870,7 @@ fun DisplayCurrentWeekDates(
                 backgroundColor = backgroundColor, // Color(0x12345678)
 
 
-                ) {
+            ) {
 
             }
         }
@@ -918,11 +914,13 @@ fun CustomBottomBackgroundTextButton(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(28.dp))
-            .then(Modifier.clickable(
-                onClick = { onClick(recursionDate) },
-                interactionSource = interactionSource,
-                indication = null, // 可选，为点击添加涟漪效果
-            )),
+            .then(
+                Modifier.clickable(
+                    onClick = { onClick(recursionDate) },
+                    interactionSource = interactionSource,
+                    indication = null, // 可选，为点击添加涟漪效果
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         // 浅灰色Todo指示进度条
@@ -948,8 +946,7 @@ fun CustomBottomBackgroundTextButton(
             modifier = Modifier
                 .width(27.dp).height(27.dp)
                 .clip(RoundedCornerShape(28.dp))
-                .background(boxBackground)
-            ,
+                .background(boxBackground),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -1002,7 +999,7 @@ fun CustomTitle() {
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.8f)
-                .padding(top = 4.dp)
+                .padding(start = 8.dp, top = 8.dp)
         ) {
             Text(text = "代办", fontSize = 26.sp)
             Text(text = "每日计划都在这里", fontSize = 12.sp)
@@ -1152,7 +1149,7 @@ fun BoxSelectionButton(
             color = contentColor, // 使用状态控制文本颜色
             modifier = Modifier
                 .padding(4.dp),
-            fontWeight =  fontSystem
+            fontWeight = fontSystem
 
         )
     }
