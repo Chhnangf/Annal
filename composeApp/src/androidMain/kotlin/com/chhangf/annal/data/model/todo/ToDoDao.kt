@@ -1,4 +1,4 @@
-package com.chhangf.annal.data
+package com.chhangf.annal.data.model.todo
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -7,8 +7,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.chhangf.annal.data.model.ToDoBox
-import com.chhangf.annal.data.model.ToDoData
+import com.chhangf.annal.data.core.todo.ToDoBox
+import com.chhangf.annal.data.core.todo.ToDoData
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 

@@ -16,6 +16,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
 import androidx.compose.foundation.gestures.Orientation
@@ -33,8 +34,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -50,7 +49,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
@@ -101,11 +99,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.chhangf.annal.R
-import com.chhangf.annal.data.model.Activity
-import com.chhangf.annal.data.model.Priority
-import com.chhangf.annal.data.model.ToDoBox
-import com.chhangf.annal.data.model.ToDoData
-import com.chhangf.annal.data.viewmodel.ToDoViewModel
+import com.chhangf.annal.data.core.calendar.InfiniteScrollCalendar
+import com.chhangf.annal.data.core.todo.Activity
+import com.chhangf.annal.data.core.todo.Priority
+import com.chhangf.annal.data.core.todo.ToDoBox
+import com.chhangf.annal.data.core.todo.ToDoData
+import com.chhangf.annal.data.viewmodel.todo.ToDoViewModel
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.rememberPagerState
 import com.marosseleng.compose.material3.datetimepickers.time.domain.noSeconds
 import com.marosseleng.compose.material3.datetimepickers.time.ui.dialog.TimePickerDialog
 import kotlinx.coroutines.delay
@@ -142,6 +144,10 @@ fun TodosScreen(
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
 
+
+    // 日历
+
+
     // 使用Scaffold创建包含顶部栏和底部栏的布局
     Scaffold(
         topBar = {},
@@ -160,18 +166,19 @@ fun TodosScreen(
                     ) {
                         // 主题（诗文 + 按钮）
                         CustomTitle()
-
-                        CustomCalendar(
-                            todoViewModel = todoViewModel,
-                            onDateSelected = { selectedDate ->
-                                Log.d(
-                                    "ToDoScreen",
-                                    "selectedDate -> CustomCalendar: $selectedDate"
-                                )
-                                todoViewModel.fetchCalendarDate(selectedDate)
-                            },
-                            selectedDate = selectDate,
-                        )
+                        TestCalendar(todoViewModel)
+//
+//                        CustomCalendar(
+//                            todoViewModel = todoViewModel,
+//                            onDateSelected = { selectedDate ->
+//                                Log.d(
+//                                    "ToDoScreen",
+//                                    "selectedDate -> CustomCalendar: $selectedDate"
+//                                )
+//                                todoViewModel.fetchCalendarDate(selectedDate)
+//                            },
+//                            selectedDate = selectDate,
+//                        )
 
                     }
                 }
@@ -690,7 +697,7 @@ fun CustomCalendar(
                         //.border(1.dp, Color.Red)
                         .padding(10.dp, 10.dp, 10.dp, 0.dp)
                         .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val currentYearMonth by remember {
@@ -698,41 +705,17 @@ fun CustomCalendar(
                             YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-M"))
                         )
                     }
-
-                    Row {
-                        Text(text = currentYearMonth, fontSize = 16.sp, fontFamily = fontFamilys)
-                        // TODO点击弹出alert界面，显示年月方格
+                    Text(text = currentYearMonth, fontSize = 16.sp, fontFamily = fontFamilys)
+                    // TODO点击弹出alert界面，显示年月方格
+                    IconButton(
+                        onClick = { // TODO 点击弹出alert界面，显示年月方格
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = "年月下拉"
                         )
                     }
-
-
-                    Row(
-                        modifier = Modifier,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "活跃低", fontSize = 12.sp)
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = Icons.Default.FavoriteBorder,
-                            contentDescription = "活跃低"
-                        )
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = Icons.Default.FavoriteBorder,
-                            contentDescription = "活跃中"
-                        )
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = Icons.Default.FavoriteBorder,
-                            contentDescription = "活跃高"
-                        )
-                        Text(text = "高", fontSize = 12.sp)
-                    }
-
-
                 }
 
                 // ****** 周日历 || 月日历 ******
@@ -769,7 +752,7 @@ fun CustomCalendar(
                             LocalDate.now()
                         )
 
-                        "month" -> DisplayCurrentMonthDatesAligned(
+                        "month" -> DisplayCurrentMonthDates(
                             todoViewModel,
                             onDateSelected,
                             selectedDate,
@@ -809,6 +792,53 @@ fun CustomCalendar(
     }
 
 
+}
+
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+fun TestCalendar(todoViewModel: ToDoViewModel) {
+
+
+
+    val coroutineScope = rememberCoroutineScope()
+    // 使用collectAsState收集displayedMonthRange的值
+    val displayedMonthRange by todoViewModel.displayedMonthRange.collectAsState()
+
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+    }
+    val pagerState = rememberPagerState(Int.MAX_VALUE / 2)
+    var previousTargetPageIndex by remember { mutableStateOf(0) } // 初始化一个状态来存储上一次的页面索引
+    var offsetNumber by remember { mutableStateOf(0) }
+    LaunchedEffect(pagerState.targetPage) {
+        val oldTargetPageIndex = previousTargetPageIndex
+        previousTargetPageIndex = pagerState.targetPage
+        offsetNumber = pagerState.targetPage - oldTargetPageIndex
+    }
+
+
+    HorizontalPager(count = Int.MAX_VALUE, state = pagerState, modifier = Modifier.border(1.dp,Color.Black)) { page ->
+
+//
+        val displayMonth = YearMonth.now()
+
+        val infiniteScrollCalendar = remember(displayMonth) {
+            InfiniteScrollCalendar(displayMonth, todoViewModel)
+        }
+        Column(Modifier.height(500.dp).verticalScroll(rememberScrollState())) {
+            infiniteScrollCalendar.getCurrentDisplayDates().forEach { date ->
+                Text(
+                    text = date.toString(),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.Black,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+        }
+    }
 }
 
 
@@ -872,71 +902,8 @@ fun DisplayCurrentWeekDates(
     }
 }
 
-// 月日历
 @Composable
 fun DisplayCurrentMonthDates(
-    todoViewModel: ToDoViewModel,
-    onDateSelected: (LocalDate) -> Unit,
-    selectedDate: LocalDate?,
-    today: LocalDate
-) {
-    // 订阅 todoViewModel 的 todoDataWithDate
-    val todoDataWithDate by todoViewModel.todoWithActivity.collectAsState()
-
-    val currentMonth = YearMonth.from(selectedDate)
-    val daysInMonth = currentMonth.lengthOfMonth()
-
-    // 计算当月第一天是周几，用于对齐日历
-    val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value
-    val weekdays = DayOfWeek.values().toList()
-
-    Column(modifier = Modifier.padding(8.dp)) {
-
-
-//         创建一个7x6的网格布局来显示整个月的日历
-        LazyVerticalGrid(columns = GridCells.Fixed(7)) {
-            items(daysInMonth + firstDayOfWeek - 1) { index ->
-                val dayOfMonth = index - firstDayOfWeek + 1
-                if (dayOfMonth > 0 && dayOfMonth <= daysInMonth) {
-                    val currentDate = currentMonth.atDay(dayOfMonth)
-                    val isSelected = currentDate == selectedDate
-                    val isToday = currentDate == today
-
-                    // 从 todoDataWithDate 中找到对应日期的活动度信息
-                    val weekDateWithDate = todoDataWithDate.find { it.selectedDate == currentDate }
-
-                    val selectDateWithDate = todoDataWithDate.find { it.selectedDate == selectedDate }
-
-                    val activity = weekDateWithDate?.activity ?: Activity.NONE
-                    val todoCount = weekDateWithDate?.totalTodos ?: 0
-                    val todoDone = weekDateWithDate?.doneTodos ?: 0
-
-                    val backgroundColor = when (activity) {
-                        Activity.NONE -> Color.Transparent
-                        Activity.LOW -> Color(0xff9be9a8).copy(alpha = 0.6f)
-                        Activity.MEDIUM -> Color(0xff40c463).copy(alpha = 0.6f)
-                        Activity.HIGH -> Color(0xff30a14e).copy(alpha = 0.8f)
-                    }
-
-                    CustomBottomBackgroundTextButton(
-                        currentDate,
-                        isSelectedDate = isSelected,
-                        isToday = isToday,
-                        onClick = {
-                            onDateSelected(currentDate)
-                        },
-                        doneCount = todoDone,
-                        totalCount = todoCount,
-                        backgroundColor = backgroundColor, // Color(0x12345678)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DisplayCurrentMonthDatesAligned(
     todoViewModel: ToDoViewModel,
     onDateSelected: (LocalDate) -> Unit,
     selectedDate: LocalDate?,
@@ -980,7 +947,8 @@ fun DisplayCurrentMonthDatesAligned(
                         val isSelected = currentDate == selectedDate
                         val isToday = currentDate == today
 
-                        val weekDateWithDate = todoDataWithDate.find { it.selectedDate == currentDate }
+                        val weekDateWithDate =
+                            todoDataWithDate.find { it.selectedDate == currentDate }
                         val activity = weekDateWithDate?.activity ?: Activity.NONE
                         val todoCount = weekDateWithDate?.totalTodos ?: 0
                         val todoDone = weekDateWithDate?.doneTodos ?: 0
@@ -1015,6 +983,7 @@ fun DisplayCurrentMonthDatesAligned(
         }
     }
 }
+
 
 // 自定义日期选项样式
 @Composable
@@ -1517,3 +1486,4 @@ fun PrioritySelect(
         }
     }
 }
+

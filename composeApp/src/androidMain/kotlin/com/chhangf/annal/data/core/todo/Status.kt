@@ -1,4 +1,4 @@
-package com.chhangf.annal.data.model
+package com.chhangf.annal.data.core.todo
 
 /**
  *  状态：待完成/已完成/删除

@@ -11,7 +11,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.chhangf.annal.data.viewmodel.ToDoViewModel
+import com.chhangf.annal.data.viewmodel.todo.ToDoViewModel
 import com.chhangf.annal.markdown.MarkdownText
 
 //import dev.jeziellago.compose.markdowntext.MarkdownText

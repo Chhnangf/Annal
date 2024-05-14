@@ -1,9 +1,9 @@
-package com.chhangf.annal.data
+package com.chhangf.annal.data.model.todo
 
 import androidx.room.TypeConverter
-import com.chhangf.annal.data.model.Priority
-import com.chhangf.annal.data.model.Status
-import com.chhangf.annal.data.model.SubTask
+import com.chhangf.annal.data.core.todo.Priority
+import com.chhangf.annal.data.core.todo.Status
+import com.chhangf.annal.data.core.todo.SubTask
 import com.google.gson.Gson
 import java.time.Instant
 import java.time.LocalDateTime

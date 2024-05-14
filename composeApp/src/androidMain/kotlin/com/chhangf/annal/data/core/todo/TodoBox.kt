@@ -1,4 +1,4 @@
-package com.chhangf.annal.data.model
+package com.chhangf.annal.data.core.todo
 
 import android.os.Build
 import androidx.annotation.RequiresApi

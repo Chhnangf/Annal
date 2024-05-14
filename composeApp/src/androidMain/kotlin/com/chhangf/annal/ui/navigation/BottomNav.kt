@@ -36,7 +36,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.chhangf.annal.SessionViewModel
-import com.chhangf.annal.data.viewmodel.ToDoViewModel
+import com.chhangf.annal.data.viewmodel.todo.ToDoViewModel
 
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
