@@ -106,7 +106,7 @@ fun ExpandableBox() {
     val draggableState = remember {
         DraggableState { delta ->
             totalDelta += delta
-            Log.d("ExpandableBox","totalDelta=$totalDelta, dragThreshold=$dragThreshold")
+            Log.d("ExpandableBox", "totalDelta=$totalDelta, dragThreshold=$dragThreshold")
             // 如果拖动方向向下并且未达到最大高度，则增加高度
             if (totalDelta > dragThreshold) {
                 totalDelta = dragThreshold
@@ -277,7 +277,12 @@ fun CustomSmoothCalendar(
         if (calendarType == "week") {
             DisplayCurrentWeekDates(todoViewModel, onDateSelected, selectedDate, LocalDate.now())
         } else if (calendarType == "month") {
-            DisplayCurrentMonthDates(todoViewModel, onDateSelected, selectedDate, LocalDate.now())
+            DisplayCurrentMonthDates(
+                todoViewModel,
+                onDateSelected,
+                selectedDate,
+                LocalDate.now()
+            )
         }
     }
 }

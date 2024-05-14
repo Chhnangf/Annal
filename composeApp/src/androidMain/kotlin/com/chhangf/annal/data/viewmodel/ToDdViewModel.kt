@@ -307,7 +307,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     // 加载一周的活跃度数据
     suspend fun refreshWeeklyActivity() {
         _todoWithActivity.value = repository.getWeeklyActivity()
-        //Log.d("ToDoViewModel","_todoDataWithDate.value ${_todoWithActivity.value}")
+        Log.d("ToDoViewModel","_todoDataWithDate.value ${_todoWithActivity.value}")
     }
 
 

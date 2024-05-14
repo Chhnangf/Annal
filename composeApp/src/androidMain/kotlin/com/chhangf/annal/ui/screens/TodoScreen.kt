@@ -69,8 +69,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -603,30 +601,15 @@ fun CustomCheckbox(
 }
 
 
-// 自定义滑块
-@Composable
-fun SwitchWithIconExample() {
-    var checked by remember { mutableStateOf(true) }
-
-    Switch(
-        modifier = Modifier,
-        checked = checked,
-        onCheckedChange = {
-            checked = it
-        },
-        thumbContent = if (checked) {
-            {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(SwitchDefaults.IconSize),
-                )
-            }
-        } else {
-            null
-        }
-    )
-}
+val weekdayChineseMap = mapOf(
+    "MON" to "一",
+    "TUE" to "二",
+    "WED" to "三",
+    "THU" to "四",
+    "FRI" to "五",
+    "SAT" to "六",
+    "SUN" to "日"
+)
 
 // 日历
 @Composable
@@ -637,13 +620,14 @@ fun CustomCalendar(
 ) {
     // 初始高度和最大扩展高度
     var initialHeight by remember { mutableStateOf(35f) }
-    val maxHeight = 180f
-    val dragThreshold = initialHeight +  initialHeight * 0.2f // 设定40%作为动画触发的拖动阈值
+    val maxHeight = 190f
+    val dragThreshold = initialHeight + initialHeight * 0.2f // 设定40%作为动画触发的拖动阈值
 
     var varAnimiteH by remember { mutableStateOf(initialHeight) }
     fun updateAnimiteHp(height: Float) {
         varAnimiteH = height
     }
+
     var showMaxHeight by remember { mutableStateOf(false) }
     // calendar type
     var calendarType by remember { mutableStateOf("week") }
@@ -653,7 +637,11 @@ fun CustomCalendar(
 
 
     val animateAction = animateDpAsState(
-        targetValue = if (showMaxHeight) {maxHeight.dp} else {varAnimiteH.dp},
+        targetValue = if (showMaxHeight) {
+            maxHeight.dp
+        } else {
+            varAnimiteH.dp
+        },
         animationSpec = tween(
             durationMillis = 500, // 指定动画持续时间，例如500毫秒
             easing = LinearOutSlowInEasing // 线性进出的插值器，实现线性动画效果
@@ -768,25 +756,26 @@ fun CustomCalendar(
 
                 }
 
-                // 日号
+                // 日子
                 Column(
                     modifier = Modifier.height(animateAction.value)
                 ) {
-                        // 更新显示逻辑，根据calendarType选择显示周视图还是月视图
-                        when (calendarType) {
-                            "week" -> DisplayCurrentWeekDates(
-                                todoViewModel,
-                                onDateSelected,
-                                selectedDate,
-                                LocalDate.now()
-                            )
-                            "month" -> DisplayCurrentMonthDates(
-                                todoViewModel,
-                                onDateSelected,
-                                selectedDate,
-                                LocalDate.now()
-                            )
-                        }
+                    // 更新显示逻辑，根据calendarType选择显示周视图还是月视图
+                    when (calendarType) {
+                        "week" -> DisplayCurrentWeekDates(
+                            todoViewModel,
+                            onDateSelected,
+                            selectedDate,
+                            LocalDate.now()
+                        )
+
+                        "month" -> DisplayCurrentMonthDatesAligned(
+                            todoViewModel,
+                            onDateSelected,
+                            selectedDate,
+                            LocalDate.now()
+                        )
+                    }
                 }
             }
             Row(
@@ -800,7 +789,7 @@ fun CustomCalendar(
                         state = draggableState,
                         onDragStopped = {
                             // 当拖动停止时，确保高度不超过最大值也不低于初始值
-                            if (animateAction.value < maxHeight.dp *0.5f) {
+                            if (animateAction.value < maxHeight.dp * 0.5f) {
                                 varAnimiteH = initialHeight
                             }
                             updateCalendarType(varAnimiteH)
@@ -822,16 +811,6 @@ fun CustomCalendar(
 
 }
 
-val weekdayChineseMap = mapOf(
-    "MON" to "一",
-    "TUE" to "二",
-    "WED" to "三",
-    "THU" to "四",
-    "FRI" to "五",
-    "SAT" to "六",
-    "SUN" to "日"
-)
-
 
 // 周日历
 @Composable
@@ -844,9 +823,6 @@ fun DisplayCurrentWeekDates(
 
     // 订阅 todoViewModel 的 todoDataWithDate
     val todoDataWithDate by todoViewModel.todoWithActivity.collectAsState()
-    LaunchedEffect(Unit) {
-        todoViewModel.refreshWeeklyActivity()
-    }
 
     val firstDayOfWeek =
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -906,9 +882,6 @@ fun DisplayCurrentMonthDates(
 ) {
     // 订阅 todoViewModel 的 todoDataWithDate
     val todoDataWithDate by todoViewModel.todoWithActivity.collectAsState()
-    LaunchedEffect(Unit) {
-        todoViewModel.refreshWeeklyActivity()
-    }
 
     val currentMonth = YearMonth.from(selectedDate)
     val daysInMonth = currentMonth.lengthOfMonth()
@@ -919,7 +892,8 @@ fun DisplayCurrentMonthDates(
 
     Column(modifier = Modifier.padding(8.dp)) {
 
-        // 创建一个7x6的网格布局来显示整个月的日历
+
+//         创建一个7x6的网格布局来显示整个月的日历
         LazyVerticalGrid(columns = GridCells.Fixed(7)) {
             items(daysInMonth + firstDayOfWeek - 1) { index ->
                 val dayOfMonth = index - firstDayOfWeek + 1
@@ -936,7 +910,6 @@ fun DisplayCurrentMonthDates(
                     val activity = weekDateWithDate?.activity ?: Activity.NONE
                     val todoCount = weekDateWithDate?.totalTodos ?: 0
                     val todoDone = weekDateWithDate?.doneTodos ?: 0
-                    val selectDate = selectDateWithDate?.selectedDate
 
                     val backgroundColor = when (activity) {
                         Activity.NONE -> Color.Transparent
@@ -956,6 +929,87 @@ fun DisplayCurrentMonthDates(
                         totalCount = todoCount,
                         backgroundColor = backgroundColor, // Color(0x12345678)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DisplayCurrentMonthDatesAligned(
+    todoViewModel: ToDoViewModel,
+    onDateSelected: (LocalDate) -> Unit,
+    selectedDate: LocalDate?,
+    today: LocalDate
+) {
+    val todoDataWithDate by todoViewModel.todoWithActivity.collectAsState()
+
+    val currentMonth = YearMonth.from(selectedDate)
+    val daysInMonth = currentMonth.lengthOfMonth()
+    val firstDayOfWeekOfMonth = currentMonth.atDay(1).dayOfWeek.value.toInt() // 周一为1，周日为7
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        // 对齐星期的空单元格
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            repeat(firstDayOfWeekOfMonth - 1) {
+                Spacer(modifier = Modifier.width(40.dp)) // 假定每个日期按钮的宽度为40dp
+            }
+        }
+
+        val rowsNeeded = if ((firstDayOfWeekOfMonth + daysInMonth - 1) % 7 == 0) {
+            (firstDayOfWeekOfMonth + daysInMonth - 1) / 7
+        } else {
+            (firstDayOfWeekOfMonth + daysInMonth - 1) / 7 + 1
+        }
+        // 分行显示日期，确保每行7个日期
+        for (row in 0 until rowsNeeded) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+            ) {
+                for (col in 0 until 7) {
+                    val index = row * 7 + col
+                    if (index >= firstDayOfWeekOfMonth && index < firstDayOfWeekOfMonth + daysInMonth) {
+                        val dayOfMonth = index - firstDayOfWeekOfMonth + 1
+                        val currentDate = currentMonth.atDay(dayOfMonth)
+                        val isSelected = currentDate == selectedDate
+                        val isToday = currentDate == today
+
+                        val weekDateWithDate = todoDataWithDate.find { it.selectedDate == currentDate }
+                        val activity = weekDateWithDate?.activity ?: Activity.NONE
+                        val todoCount = weekDateWithDate?.totalTodos ?: 0
+                        val todoDone = weekDateWithDate?.doneTodos ?: 0
+
+                        val backgroundColor = when (activity) {
+                            Activity.NONE -> Color.Transparent
+                            Activity.LOW -> Color(0xff9be9a8).copy(alpha = 0.6f)
+                            Activity.MEDIUM -> Color(0xff40c463).copy(alpha = 0.6f)
+                            Activity.HIGH -> Color(0xff30a14e).copy(alpha = 0.8f)
+                        }
+
+                        CustomBottomBackgroundTextButton(
+                            currentDate,
+                            isSelectedDate = isSelected,
+                            isToday = isToday,
+                            onClick = {
+                                onDateSelected(currentDate)
+                            },
+                            doneCount = todoDone,
+                            totalCount = todoCount,
+                            backgroundColor = backgroundColor
+                        )
+                    } else if (index < firstDayOfWeekOfMonth) {
+                        // 在第一行添加空白占位符对齐星期
+                        Spacer(modifier = Modifier.width(33.dp))
+                    } else if (index >= firstDayOfWeekOfMonth + daysInMonth) {
+                        // 已经遍历完本月所有日期，停止添加空白占位符
+                        Spacer(modifier = Modifier.width(33.dp))
+                    }
                 }
             }
         }
