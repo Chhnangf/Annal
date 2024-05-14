@@ -1,13 +1,13 @@
-package com.chhangf.annal.data.repository
+package com.chhangf.annal.data.viewmodel.todo
 
 import android.util.Log
-import com.chhangf.annal.data.ToDoDao
-import com.chhangf.annal.data.model.Activity
-import com.chhangf.annal.data.model.Status
-import com.chhangf.annal.data.model.ToDoBox
-import com.chhangf.annal.data.model.ToDoBoxWithTodos
-import com.chhangf.annal.data.model.ToDoData
-import com.chhangf.annal.data.model.ToDoDataWithDate
+import com.chhangf.annal.data.model.todo.ToDoDao
+import com.chhangf.annal.data.core.todo.Activity
+import com.chhangf.annal.data.core.todo.Status
+import com.chhangf.annal.data.core.todo.ToDoBox
+import com.chhangf.annal.data.core.todo.ToDoBoxWithTodos
+import com.chhangf.annal.data.core.todo.ToDoData
+import com.chhangf.annal.data.core.todo.ToDoDataWithDate
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.LocalTime

@@ -1,4 +1,4 @@
-package com.chhangf.annal.data
+package com.chhangf.annal.data.model.todo
 
 import android.content.Context
 import androidx.room.Database
@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.chhangf.annal.data.model.ToDoBox
-import com.chhangf.annal.data.model.ToDoData
+import com.chhangf.annal.data.core.todo.ToDoBox
+import com.chhangf.annal.data.core.todo.ToDoData
 
 
 @Database(entities = [ToDoData::class, ToDoBox::class], version = 2, exportSchema = false)

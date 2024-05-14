@@ -1,4 +1,4 @@
-package com.chhangf.annal.data.viewmodel
+package com.chhangf.annal.data.viewmodel.todo
 
 import android.app.Application
 import android.content.Context
@@ -8,15 +8,14 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.chhangf.annal.data.ToDoDao
-import com.chhangf.annal.data.ToDoDatabase
-import com.chhangf.annal.data.model.Status
-import com.chhangf.annal.data.model.SubTask
-import com.chhangf.annal.data.model.ToDoBox
-import com.chhangf.annal.data.model.ToDoBoxWithTodos
-import com.chhangf.annal.data.model.ToDoData
-import com.chhangf.annal.data.model.ToDoDataWithDate
-import com.chhangf.annal.data.repository.ToDoRepository
+import com.chhangf.annal.data.core.todo.Status
+import com.chhangf.annal.data.core.todo.SubTask
+import com.chhangf.annal.data.core.todo.ToDoBox
+import com.chhangf.annal.data.core.todo.ToDoBoxWithTodos
+import com.chhangf.annal.data.core.todo.ToDoData
+import com.chhangf.annal.data.core.todo.ToDoDataWithDate
+import com.chhangf.annal.data.model.todo.ToDoDao
+import com.chhangf.annal.data.model.todo.ToDoDatabase
 import com.chhangf.annal.worker.ReminderWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +29,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
@@ -72,11 +72,19 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     private val _todoBoxesList = MutableStateFlow<List<ToDoBox>>(emptyList())
     val todoBoxesList: StateFlow<List<ToDoBox>> get() = _todoBoxesList
 
-    init {
+    //  =================================== 日历 ============================================================
 
+    private val cache = mutableMapOf<YearMonth, List<LocalDate>>()
+
+    // 使用MutableStateFlow维护当前显示月份范围
+    private val _displayedMonthRange =
+        MutableStateFlow(YearMonth.now() to YearMonth.now().plusMonths(1))
+    val displayedMonthRange: StateFlow<Pair<YearMonth, YearMonth>> = _displayedMonthRange
+//  ================================================================================================
+
+    init {
         val database = ToDoDatabase.getDatabase(application)
         toDoDao = database.toDoDao()
-
         // 创建并初始化ToDoRepository实例
         repository = ToDoRepository(toDoDao)
 
@@ -93,6 +101,13 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         }
 
 
+    }
+
+    private val _scrollToPageEvent = MutableStateFlow(0)
+    val scrollToPageEvent: StateFlow<Int> = _scrollToPageEvent
+
+    fun scrollToPage(page: Int) {
+        _scrollToPageEvent.value = page
     }
 
     // 刷新box with todos
@@ -307,7 +322,7 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
     // 加载一周的活跃度数据
     suspend fun refreshWeeklyActivity() {
         _todoWithActivity.value = repository.getWeeklyActivity()
-        Log.d("ToDoViewModel","_todoDataWithDate.value ${_todoWithActivity.value}")
+        Log.d("ToDoViewModel", "_todoDataWithDate.value ${_todoWithActivity.value}")
     }
 
 
@@ -343,24 +358,72 @@ class ToDoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun calculateReminderDelay(toDoData: ToDoData): Long {
+
+        val currentDate = LocalDate.now(ZoneId.systemDefault())
+        // 检查reminderTime是否为null，并提供一个默认值（例如当前时间）
+        val reminderTime = toDoData.reminderTime ?: LocalTime.now(ZoneId.systemDefault())
+
+
+        val reminderDateTime = LocalDateTime.of(currentDate, reminderTime)
+        // 将提醒时间转换为Instant对象
+        val reminderInstant = reminderDateTime.atZone(ZoneId.systemDefault()).toInstant()
+
+        val currentTime = Instant.now()
+        // 计算延迟时间（以毫秒为单位）
+        val delay = ChronoUnit.MILLIS.between(currentTime, reminderInstant)
+
+        return delay
+    }
+
+    //  ==================================    日 历     ============================================================
+    private var _currentDate = MutableStateFlow(YearMonth.now())
+    val currentDate: StateFlow<YearMonth> get() = _currentDate
+
+    // 方法用于更新当前日期
+    fun updateCurrentDate(newDate: YearMonth) {
+        _currentDate.value = newDate
+    }
+
+
+    // 本月周一 至 本月周日
+    fun getContinuousMonthDates(yearMonth: YearMonth): List<LocalDate> {
+        val startDateOfMonth = yearMonth.atDay(1)
+        val endDateOfMonth = yearMonth.atEndOfMonth()
+
+        // Calculate how many days from the previous month to show for the first week completeness
+        val daysToBorrowFromLastMonth = (startDateOfMonth.dayOfWeek.value - 1)
+
+        // Last days of the previous month needed to start the calendar on the correct weekday
+        val lastMonthDays = (yearMonth.minusMonths(1))
+            .let { prevMonth ->
+                ((prevMonth.lengthOfMonth() - daysToBorrowFromLastMonth + 1)..prevMonth.lengthOfMonth())
+                    .map { prevMonth.atDay(it) }
+            }
+
+
+        // Current month dates
+        val currentMonthDays = mutableListOf<LocalDate>()
+        var currentDate = startDateOfMonth
+        while (currentDate.isBefore(endDateOfMonth.plusDays(1))) {
+            currentMonthDays.add(currentDate)
+            currentDate = currentDate.plusDays(1)
+        }
+
+        // Calculate how many days from the next month to show for the last week completeness
+        val daysToBorrowFromNextMonth = 7 - endDateOfMonth.dayOfWeek.value
+
+        // First days of the next month needed to end the calendar on a full week
+        val nextMonthDays = (yearMonth.plusMonths(1))
+            .let { nextMonth ->
+                (1..daysToBorrowFromNextMonth)
+                    .map { nextMonth.atDay(it) }
+            }
+
+        // Combine all dates
+        return listOf(lastMonthDays, currentMonthDays, nextMonthDays).flatten()
+    }
 }
 
 
-fun calculateReminderDelay(toDoData: ToDoData): Long {
-
-    val currentDate = LocalDate.now(ZoneId.systemDefault())
-    // 检查reminderTime是否为null，并提供一个默认值（例如当前时间）
-    val reminderTime = toDoData.reminderTime ?: LocalTime.now(ZoneId.systemDefault())
-
-
-    val reminderDateTime = LocalDateTime.of(currentDate, reminderTime)
-    // 将提醒时间转换为Instant对象
-    val reminderInstant = reminderDateTime.atZone(ZoneId.systemDefault()).toInstant()
-
-    val currentTime = Instant.now()
-    // 计算延迟时间（以毫秒为单位）
-    val delay = ChronoUnit.MILLIS.between(currentTime, reminderInstant)
-
-    return delay
-}
 

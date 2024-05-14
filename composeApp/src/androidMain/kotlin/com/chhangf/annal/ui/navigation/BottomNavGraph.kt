@@ -7,7 +7,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.chhangf.annal.SessionViewModel
-import com.chhangf.annal.data.viewmodel.ToDoViewModel
+import com.chhangf.annal.data.viewmodel.todo.ToDoViewModel
 import com.chhangf.annal.ui.screens.HomeScreen
 import com.chhangf.annal.ui.screens.LoginScreen
 import com.chhangf.annal.ui.screens.PublishScreen

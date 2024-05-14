@@ -1,0 +1,58 @@
+package com.chhangf.annal.ui.calendar.utils
+
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.YearMonth
+
+
+/**
+ * @return list of [@param count] next dates
+ */
+internal fun LocalDate.getNextDates(count: Int): List<LocalDate> {
+    val dates = mutableListOf<LocalDate>()
+    repeat(count) { day ->
+        dates.add(this.plusDays((day).toLong()))
+    }
+    return dates
+}
+
+/**
+ * @return week start date - default monday
+ */
+internal fun LocalDate.getWeekStartDate(weekStartDay: DayOfWeek = DayOfWeek.MONDAY): LocalDate {
+    var date = this
+    while (date.dayOfWeek != weekStartDay) {
+        date = date.minusDays(1)
+    }
+    return date
+}
+
+/**
+ * @return list of dates remaining in the week
+ */
+internal fun LocalDate.getRemainingDatesInWeek(weekStartDay: DayOfWeek = DayOfWeek.MONDAY): List<LocalDate> {
+    val dates = mutableListOf<LocalDate>()
+    var date = this.plusDays(1)
+    while (date.dayOfWeek != weekStartDay) {
+        dates.add(date)
+        date = date.plusDays(1)
+    }
+    return dates
+}
+
+/**
+ * @return list of dates remaining in the month
+ */
+internal fun LocalDate.getRemainingDatesInMonth(): List<LocalDate> {
+    val dates = mutableListOf<LocalDate>()
+    // 当月剩余天数，例如4月28，这里返回4月29日 - 4月30日
+    repeat(this.lengthOfMonth() - this.dayOfMonth + 1) {
+        dates.add(this.plusDays(it.toLong()))
+    }
+    return dates
+}
+
+/**
+ * @return YearMonth object of given date
+ */
+internal fun LocalDate.yearMonth(): YearMonth = YearMonth.of(this.year, this.month)

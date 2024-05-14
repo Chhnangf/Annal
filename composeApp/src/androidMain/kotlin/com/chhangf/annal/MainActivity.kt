@@ -9,8 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.rememberNavController
-import com.chhangf.annal.MyApplicationTheme
-import com.chhangf.annal.data.viewmodel.ToDoViewModel
+import com.chhangf.annal.data.viewmodel.todo.ToDoViewModel
 import com.chhangf.annal.ui.navigation.BottomNav
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
